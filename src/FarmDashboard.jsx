@@ -6,8 +6,7 @@ import {
   setPersistence,
   browserLocalPersistence,
 } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore'; // Importações mínimas do Firestore
-// NOTA: As funções do Firestore (doc, setDoc, updateDoc, etc.) não são mais usadas neste código, pois ele usa LocalStorage.
+import { getFirestore } from 'firebase/firestore'; 
 
 // --- 1. RECEITAS E CONSTANTES ---
 const RECIPES = {
@@ -27,7 +26,6 @@ function useLocalStorage(key, initialValue) {
             const item = window.localStorage.getItem(key);
             const initialData = item ? JSON.parse(item) : initialValue;
               
-            // Garante que valores nulos ou 0s sejam representados como string vazia no estado de Production
             if (key === 'farm_production' && initialData) {
                 Object.keys(initialData).forEach(prod => {
                     if (initialData[prod] === 0 || initialData[prod] === '0') {
@@ -66,7 +64,6 @@ function sumMaterials(production) {
   Object.entries(production).forEach(([product, qty]) => {
     const recipe = RECIPES[product] || {};
     Object.entries(recipe).forEach(([mat, per]) => {
-      // Garante que o qty é um número, tratando strings vazias como 0 para o cálculo  
       const numericQty = Number(qty) || 0;
       totals[mat] = (totals[mat] || 0) + per * numericQty;
     });
@@ -111,7 +108,6 @@ function calculateRanking(memberNames, perMember, delivered) {
 }
 
 // --- 4. CONFIGURAÇÃO E INICIALIZAÇÃO DO FIREBASE ---
-// MANTEMOS A CONFIGURAÇÃO PARA MANTER O LOGIN ANÔNIMO
 const USER_FIREBASE_CONFIG = {
     apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
     authDomain: process.env.REACT_APP_FIREBASE_AUTH_DOMAIN,
@@ -157,13 +153,11 @@ function Tabs({ tabs, activeTab, setActiveTab }) {
 
 // --- 6. COMPONENTE PRINCIPAL (FarmDashboard) ---
 function FarmDashboard() {
-  // --- Estados do LocalStorage ---
   const [production, setProduction] = useLocalStorage('farm_production', { Colete: 200, Algema: 100, Capuz: 50, "Flipper MK3": 20 });
   const [memberNames, setMemberNames] = useLocalStorage('farm_memberNames', ['Membro 1', 'Membro 2', 'Membro 3', 'Membro 4', 'Membro 5', 'Membro 6', 'Membro 7', 'Membro 8']);
   const [delivered, setDelivered] = useLocalStorage('farm_delivered', {});
   const [monthlyHistory, setMonthlyHistory] = useLocalStorage('farm_monthly_history', []);
     
-  // --- Estados de UI e Firebase ---
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -172,7 +166,6 @@ function FarmDashboard() {
   
   const memberCount = memberNames.length;
   
-  // --- Cálculos Memoizados ---
   const totals = useMemo(()=>sumMaterials(production),[production]);
   const perMember = useMemo(()=>{   
     if(memberCount === 0) return {};
@@ -183,7 +176,7 @@ function FarmDashboard() {
 
   const currentRanking = useMemo(() => calculateRanking(memberNames, perMember, delivered), [memberNames, perMember, delivered]);
   
-  // --- Efeito de Inicialização e Autenticação (Firebase) ---
+  // Efeito de Inicialização e Autenticação (Firebase)
   useEffect(() => {
     const authenticate = async () => {
         try {
@@ -200,9 +193,8 @@ function FarmDashboard() {
     authenticate();
   }, []); 
 
-  // --- Efeito para Sincronizar 'delivered' e 'memberCount' ---
+  // Efeito para Sincronizar 'delivered' e 'memberCount'
   useEffect(()=>{  
-    // Sincroniza o array 'delivered' com o número atual de membros e materiais
     setDelivered(prev => {   
       const next = {};   
       const currentMaterials = Object.keys(totals);  
@@ -212,7 +204,6 @@ function FarmDashboard() {
           next[mat] = Array.from({length: memberCount}, (_, i) => previousDeliveries[i] ?? '');
       });
         
-      // Limpa materiais que não estão mais nas receitas
       Object.keys(prev).forEach(mat => {
           if (!currentMaterials.includes(mat)) {
               delete next[mat];
@@ -308,7 +299,6 @@ function FarmDashboard() {
     setActiveTab('Controle de Entregas');
   }, [memberCount, currentRanking, setMonthlyHistory, setDelivered, totals]);
   
-  // Funções de Gerenciamento de Membros  
   const handleAddMember = useCallback((name) => {
     setMemberNames(prev => [...prev, name]);
   }, [setMemberNames]);
@@ -757,5 +747,4 @@ function FarmDashboard() {
   );
 }
 
-// EXPORTAÇÃO PADRÃO (Necessária para o Create React App)
 export default FarmDashboard;
