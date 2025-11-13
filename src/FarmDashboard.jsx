@@ -1,10 +1,38 @@
+// --- COMPONENTE DE ABAS (MOVIDO PARA O TOPO) ---
+function Tabs({ tabs, activeTab, setActiveTab }) {
+    const icons = {
+      'Configuração e Metas': '⚙️',
+      'Controle de Entregas': '📦',
+      'Resumo e Status': '📈',
+      'Ranking e Histórico': '🏆',
+      'Gerenciar Membros': '👥'
+    };
+      
+    return (
+      <div className="flex border-b border-gray-300 mb-6 overflow-x-auto">
+        {tabs.map((tab, index) => (
+          <button
+            key={index}
+            className={`py-3 px-4 sm:px-6 text-base sm:text-lg font-semibold whitespace-nowrap transition-colors duration-200 focus:outline-none ${
+              activeTab === tab
+                ? 'border-b-4 border-indigo-600 text-indigo-700 bg-gray-100/50'
+                : 'text-gray-500 hover:text-indigo-500 hover:border-b-4 border-transparent'
+            }`}
+            onClick={() => setActiveTab(tab)}
+          >
+            {icons[tab] || ''} {tab}
+          </button>
+        ))}
+      </div>
+    );
+  }
+
+// Importações e Configurações de Firebase (Mantidas)
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, setPersistence, browserLocalPersistence } from 'firebase/auth';
-// Importação de funções do Firestore
 import { getFirestore, doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore'; 
 
-// --- CONFIGURAÇÃO FIREBASE ---
 const USER_FIREBASE_CONFIG = {
     apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
     authDomain: process.env.REACT_APP_FIREBASE_AUTH_DOMAIN,
@@ -14,7 +42,6 @@ const USER_FIREBASE_CONFIG = {
     appId: process.env.REACT_APP_FIREBASE_APP_ID,
 };
 
-// **[CORREÇÃO 1]** Extraindo o APP_ID para usar no caminho do Firestore.
 const FIREBASE_APP_ID = USER_FIREBASE_CONFIG.appId;
 
 const app = initializeApp(USER_FIREBASE_CONFIG);
@@ -36,12 +63,9 @@ function useFirestoreSync(docName, initialValue, isShared = true) {
     const [data, setData] = useState(initialValue);
     const [loading, setLoading] = useState(true);
     
-    // **[CORREÇÃO 2]** Construindo o caminho completo do Firestore para a coleção 'farmData'.
-    // O caminho final será: artifacts/{appId}/public/data/farmData/{docName}
     const collectionPath = `artifacts/${FIREBASE_APP_ID}/public/data/farmData`; 
     const docRef = doc(db, collectionPath, docName); 
 
-    // Função para escrever no Firestore
     const updateData = useCallback(async (newValue) => {
         const valueToStore = newValue instanceof Function ? newValue(data) : newValue;
         setData(valueToStore);
@@ -54,7 +78,6 @@ function useFirestoreSync(docName, initialValue, isShared = true) {
         }
     }, [docRef, data, isShared]);
     
-    // Efeito para carregar dados (LocalStorage -> Firestore) e sincronizar
     useEffect(() => {
         let unsubscribe;
         const loadAndSync = async () => {
@@ -72,7 +95,6 @@ function useFirestoreSync(docName, initialValue, isShared = true) {
                 }
             }
 
-            // 1. Carregar/Migrar para o Firestore
             try {
                 const docSnap = await getDoc(docRef);
 
@@ -90,7 +112,6 @@ function useFirestoreSync(docName, initialValue, isShared = true) {
                 console.error(`Erro inicial de carregamento/migração de ${docName}. Usando valor local.`, err);
             }
 
-            // 2. Setup Listener (Sincronização em Tempo Real)
             if (isShared) {
                 unsubscribe = onSnapshot(docRef, (doc) => {
                     if (doc.exists()) {
@@ -207,10 +228,10 @@ function FarmDashboard() {
 
   const currentRanking = useMemo(() => calculateRanking(memberNames, perMember, delivered), [memberNames, perMember, delivered]);
   
-  const authLoadingCompleted = !authLoading; // Indica se a autenticação terminou
-  const dataLoadingCompleted = !loadingProduction && !loadingMembers && !loadingDelivered; // Indica se todos os dados do Firestore terminaram de carregar
+  const authLoadingCompleted = !authLoading; 
+  const dataLoadingCompleted = !loadingProduction && !loadingMembers && !loadingDelivered; 
 
-  const loading = authLoading || loadingProduction || loadingMembers || loadingDelivered; // Estado de carregamento geral
+  const loading = authLoading || loadingProduction || loadingMembers || loadingDelivered; 
 
   // Efeito de Inicialização e Autenticação (Firebase)
   useEffect(() => {
@@ -231,8 +252,6 @@ function FarmDashboard() {
 
   // Efeito para Sincronizar 'delivered' e 'memberCount' (Ajuste a estrutura ao carregar)
   useEffect(()=>{  
-    // Esta lógica é importante para garantir que o array 'delivered' tenha o tamanho certo
-    // de acordo com memberNames carregado do Firestore.
     if (dataLoadingCompleted) {
         setDelivered(prev => {   
           const next = {};   
@@ -260,7 +279,7 @@ function FarmDashboard() {
 
 
   
-  // --- Funções de Manipulação de Dados ---
+  // --- Funções de Manipulação de Dados (mantidas) ---
     
   const updateProduction = useCallback((product, value) => {   
       const sanitizedValue = value === '' || (!isNaN(Number(value)) && Number(value) >= 0) ? value : production[product];
@@ -369,9 +388,8 @@ function FarmDashboard() {
   }, [memberNames, setMemberNames, setDelivered]);
 
 
-  // --- CONTEÚDO JSX DAS ABAS (Necessário para o renderContent funcionar) ---
+  // --- CONTEÚDO JSX DAS ABAS (Mantido) ---
   
-  // Componente de Visualização de Progresso Individual 
   const MemberProgressViewer = ({ memberIndex }) => {
     const memberName = memberNames[memberIndex];
     if (memberIndex === null || memberIndex >= memberNames.length) return null;
@@ -780,6 +798,7 @@ function FarmDashboard() {
         <div className="text-center p-10 bg-red-100 border border-red-400 text-red-700 font-semibold rounded-lg">
             <h1 className="text-2xl mb-2">⚠️ Erro Crítico</h1>
             <p className="text-sm">Falha no Firebase Auth ou na conexão com o Firestore: {error}</p>
+            <p className="text-sm mt-2">Verifique as Regras de Segurança e o Login Anônimo no Firebase.</p>
         </div>
     );
   }
@@ -793,33 +812,6 @@ function FarmDashboard() {
   );
 }
 
-// --- Componente de Abas fora do componente principal ---
-function Tabs({ tabs, activeTab, setActiveTab }) {
-    const icons = {
-      'Configuração e Metas': '⚙️',
-      'Controle de Entregas': '📦',
-      'Resumo e Status': '📈',
-      'Ranking e Histórico': '🏆',
-      'Gerenciar Membros': '👥'
-    };
-      
-    return (
-      <div className="flex border-b border-gray-300 mb-6 overflow-x-auto">
-        {tabs.map((tab, index) => (
-          <button
-            key={index}
-            className={`py-3 px-4 sm:px-6 text-base sm:text-lg font-semibold whitespace-nowrap transition-colors duration-200 focus:outline-none ${
-              activeTab === tab
-                ? 'border-b-4 border-indigo-600 text-indigo-700 bg-gray-100/50'
-                : 'text-gray-500 hover:text-indigo-500 hover:border-b-4 border-transparent'
-            }`}
-            onClick={() => setActiveTab(tab)}
-          >
-            {icons[tab] || ''} {tab}
-          </button>
-        ))}
-      </div>
-    );
-  }
+// O componente Tabs foi movido para o topo
 
 export default FarmDashboard;
