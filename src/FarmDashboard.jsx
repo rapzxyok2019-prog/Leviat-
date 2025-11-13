@@ -1,38 +1,14 @@
-// --- COMPONENTE DE ABAS (MOVIDO PARA O TOPO) ---
-function Tabs({ tabs, activeTab, setActiveTab }) {
-    const icons = {
-      'Configuração e Metas': '⚙️',
-      'Controle de Entregas': '📦',
-      'Resumo e Status': '📈',
-      'Ranking e Histórico': '🏆',
-      'Gerenciar Membros': '👥'
-    };
-      
-    return (
-      <div className="flex border-b border-gray-300 mb-6 overflow-x-auto">
-        {tabs.map((tab, index) => (
-          <button
-            key={index}
-            className={`py-3 px-4 sm:px-6 text-base sm:text-lg font-semibold whitespace-nowrap transition-colors duration-200 focus:outline-none ${
-              activeTab === tab
-                ? 'border-b-4 border-indigo-600 text-indigo-700 bg-gray-100/50'
-                : 'text-gray-500 hover:text-indigo-500 hover:border-b-4 border-transparent'
-            }`}
-            onClick={() => setActiveTab(tab)}
-          >
-            {icons[tab] || ''} {tab}
-          </button>
-        ))}
-      </div>
-    );
-  }
-
-// Importações e Configurações de Firebase (Mantidas)
+// =================================================================
+// 1. TODAS AS IMPORTAÇÕES (NO TOPO)
+// =================================================================
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, setPersistence, browserLocalPersistence } from 'firebase/auth';
 import { getFirestore, doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore'; 
 
+// =================================================================
+// 2. CONSTANTES E CONFIGURAÇÕES
+// =================================================================
 const USER_FIREBASE_CONFIG = {
     apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
     authDomain: process.env.REACT_APP_FIREBASE_AUTH_DOMAIN,
@@ -44,11 +20,6 @@ const USER_FIREBASE_CONFIG = {
 
 const FIREBASE_APP_ID = USER_FIREBASE_CONFIG.appId;
 
-const app = initializeApp(USER_FIREBASE_CONFIG);
-const auth = getAuth(app);
-const db = getFirestore(app);
-
-// --- 1. RECEITAS E CONSTANTES ---
 const RECIPES = {
   Colete: { Borracha: 10, "Plástico": 10, Alumínio: 20, Ferro: 20, Tecido: 1 },
   Algema: { Borracha: 20, "Plástico": 20, Alumínio: 25, Cobre: 25, Ferro: 30 },
@@ -58,7 +29,67 @@ const RECIPES = {
 
 const TABS = ['Configuração e Metas', 'Controle de Entregas', 'Resumo e Status', 'Ranking e Histórico', 'Gerenciar Membros'];
 
-// --- 2. HOOK CUSTOMIZADO PARA SINCRONIZAÇÃO EM NUVEM (Firestore) ---
+// =================================================================
+// 3. INICIALIZAÇÃO DO FIREBASE
+// =================================================================
+const app = initializeApp(USER_FIREBASE_CONFIG);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+// =================================================================
+// 4. FUNÇÕES DE CÁLCULO E UTILITÁRIOS
+// =================================================================
+function sumMaterials(production) {
+  const totals = {};
+  Object.entries(production).forEach(([product, qty]) => {
+    const recipe = RECIPES[product] || {};
+    Object.entries(recipe).forEach(([mat, per]) => {
+      const numericQty = Number(qty) || 0;
+      totals[mat] = (totals[mat] || 0) + per * numericQty;
+    });
+  });
+  return totals;
+}
+
+function ceilDivide(a, b) { return Math.ceil(a / b); }
+
+function calculateRanking(memberNames, perMember, delivered) {
+    if (memberNames.length === 0 || Object.keys(perMember).length === 0) return [];
+
+    return memberNames.map((name, index) => {
+        let totalTarget = 0;
+        let totalDelivered = 0;
+
+        Object.keys(perMember).forEach(mat => {
+            const target = perMember[mat] || 0;
+            const deliveredQty = Number(delivered[mat]?.[index]) || 0; 
+            totalTarget += target;
+            totalDelivered += deliveredQty;
+        });
+
+        const percentage = totalTarget > 0 ? (totalDelivered / totalTarget) : 0;
+        const pct = Math.min(100, Math.round(percentage * 100));
+
+        let medal = 'Nenhuma';
+        if (pct >= 100) medal = '🥇 Ouro';
+        else if (pct >= 80) medal = '🥈 Prata';
+        else if (pct >= 50) medal = '🥉 Bronze';
+
+        return {
+            name,
+            index,
+            totalTarget,
+            totalDelivered,
+            pct,
+            medal
+        };
+    })
+    .sort((a, b) => b.pct - a.pct);
+}
+
+// =================================================================
+// 5. COMPONENTES AUXILIARES (Hooks e Funções React)
+// =================================================================
 function useFirestoreSync(docName, initialValue, isShared = true) {
     const [data, setData] = useState(initialValue);
     const [loading, setLoading] = useState(true);
@@ -142,58 +173,37 @@ function useFirestoreSync(docName, initialValue, isShared = true) {
     return [data, updateData, loading];
 }
 
+function Tabs({ tabs, activeTab, setActiveTab }) {
+    const icons = {
+      'Configuração e Metas': '⚙️',
+      'Controle de Entregas': '📦',
+      'Resumo e Status': '📈',
+      'Ranking e Histórico': '🏆',
+      'Gerenciar Membros': '👥'
+    };
+      
+    return (
+      <div className="flex border-b border-gray-300 mb-6 overflow-x-auto">
+        {tabs.map((tab, index) => (
+          <button
+            key={index}
+            className={`py-3 px-4 sm:px-6 text-base sm:text-lg font-semibold whitespace-nowrap transition-colors duration-200 focus:outline-none ${
+              activeTab === tab
+                ? 'border-b-4 border-indigo-600 text-indigo-700 bg-gray-100/50'
+                : 'text-gray-500 hover:text-indigo-500 hover:border-b-4 border-transparent'
+            }`}
+            onClick={() => setActiveTab(tab)}
+          >
+            {icons[tab] || ''} {tab}
+          </button>
+        ))}
+      </div>
+    );
+  }
 
-// --- 3. FUNÇÕES DE CÁLCULO E UTILITÁRIOS (MANTIDAS) ---
-function sumMaterials(production) {
-  const totals = {};
-  Object.entries(production).forEach(([product, qty]) => {
-    const recipe = RECIPES[product] || {};
-    Object.entries(recipe).forEach(([mat, per]) => {
-      const numericQty = Number(qty) || 0;
-      totals[mat] = (totals[mat] || 0) + per * numericQty;
-    });
-  });
-  return totals;
-}
-
-function ceilDivide(a, b) { return Math.ceil(a / b); }
-
-function calculateRanking(memberNames, perMember, delivered) {
-    if (memberNames.length === 0 || Object.keys(perMember).length === 0) return [];
-
-    return memberNames.map((name, index) => {
-        let totalTarget = 0;
-        let totalDelivered = 0;
-
-        Object.keys(perMember).forEach(mat => {
-            const target = perMember[mat] || 0;
-            const deliveredQty = Number(delivered[mat]?.[index]) || 0; 
-            totalTarget += target;
-            totalDelivered += deliveredQty;
-        });
-
-        const percentage = totalTarget > 0 ? (totalDelivered / totalTarget) : 0;
-        const pct = Math.min(100, Math.round(percentage * 100));
-
-        let medal = 'Nenhuma';
-        if (pct >= 100) medal = '🥇 Ouro';
-        else if (pct >= 80) medal = '🥈 Prata';
-        else if (pct >= 50) medal = '🥉 Bronze';
-
-        return {
-            name,
-            index,
-            totalTarget,
-            totalDelivered,
-            pct,
-            medal
-        };
-    })
-    .sort((a, b) => b.pct - a.pct);
-}
-
-
-// --- 4. COMPONENTE PRINCIPAL (FarmDashboard) ---
+// =================================================================
+// 6. COMPONENTE PRINCIPAL (FarmDashboard)
+// =================================================================
 function FarmDashboard() {
   const [production, setProduction, loadingProduction] = useFirestoreSync('production', { Colete: 200, Algema: 100, Capuz: 50, "Flipper MK3": 20 });
   const [memberNames, setMemberNames, loadingMembers] = useFirestoreSync('memberNames', ['Membro 1', 'Membro 2', 'Membro 3', 'Membro 4', 'Membro 5', 'Membro 6', 'Membro 7', 'Membro 8']);
@@ -811,7 +821,5 @@ function FarmDashboard() {
     </div>
   );
 }
-
-// O componente Tabs foi movido para o topo
 
 export default FarmDashboard;
