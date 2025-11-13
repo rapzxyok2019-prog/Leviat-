@@ -14,6 +14,9 @@ const USER_FIREBASE_CONFIG = {
     appId: process.env.REACT_APP_FIREBASE_APP_ID,
 };
 
+// **[CORREÇÃO 1]** Extraindo o APP_ID para usar no caminho do Firestore.
+const FIREBASE_APP_ID = USER_FIREBASE_CONFIG.appId;
+
 const app = initializeApp(USER_FIREBASE_CONFIG);
 const auth = getAuth(app);
 const db = getFirestore(app);
@@ -32,7 +35,11 @@ const TABS = ['Configuração e Metas', 'Controle de Entregas', 'Resumo e Status
 function useFirestoreSync(docName, initialValue, isShared = true) {
     const [data, setData] = useState(initialValue);
     const [loading, setLoading] = useState(true);
-    const docRef = doc(db, 'farmData', docName); 
+    
+    // **[CORREÇÃO 2]** Construindo o caminho completo do Firestore para a coleção 'farmData'.
+    // O caminho final será: artifacts/{appId}/public/data/farmData/{docName}
+    const collectionPath = `artifacts/${FIREBASE_APP_ID}/public/data/farmData`; 
+    const docRef = doc(db, collectionPath, docName); 
 
     // Função para escrever no Firestore
     const updateData = useCallback(async (newValue) => {
