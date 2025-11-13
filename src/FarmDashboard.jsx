@@ -1,3 +1,4 @@
+import { db, auth } from './index.jsx';
 import { db, auth } from "./firebase";
 // =================================================================
 // CÓDIGO CORRIGIDO PARA src/FarmDashboard.jsx
