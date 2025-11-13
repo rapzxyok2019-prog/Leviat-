@@ -11,8 +11,8 @@ const firebaseConfig = {
   authDomain: "SEU_PROJETO.firebaseapp.com",
   projectId: "SEU_PROJETO",
   storageBucket: "SEU_PROJETO.appspot.com",
-  messagingSenderId: "XXXXXXXXXXXX",
-  appId: "1:XXXXXXXXXXXX:web:XXXXXXXXXXXX"
+  messagingSenderId: "736608761330",
+  appId: "1:736608761330:web:3e7193c697eea4ff7e676b"
 };
 
 const app = initializeApp(firebaseConfig);
