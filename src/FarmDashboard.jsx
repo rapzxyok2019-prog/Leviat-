@@ -448,33 +448,404 @@ function FarmDashboard() {
 
   // --- CONTEÚDO JSX DAS ABAS ---
   
-  const MemberProgressViewer = ({ memberIndex }) => {
-    const memberName = memberNames[memberIndex];
-    if (memberIndex === null || memberIndex >= memberNames.length) return null;
-      
-    const individualProgress = Object.keys(perMember).reduce((acc, mat) => {
-        const target = perMember[mat] || 0;
-        const deliveredQty = Number(delivered[mat]?.[memberIndex]) || 0;
+  // NOTE: Este bloco estava dentro da função FarmDashboard, mas será redefinido abaixo
+  // como componente auxiliar para manter a clareza.
+  // A correção de sintaxe do className será aplicada aqui E no bloco de Componente Auxiliar.
+  const MemberProgressViewer = ({ 
+        memberIndex, 
+        memberNames, 
+        perMember, 
+        delivered, 
+        getStatusForMemberDelivery, 
+        setViewingMemberIndex 
+    }) => {
+        const memberName = memberNames[memberIndex];
+        if (memberIndex === null || memberIndex >= memberNames.length) return null;
           
-        acc.target += target;
-        acc.delivered += deliveredQty;
-        return acc;
-    }, { target: 0, delivered: 0 });
+        const individualProgress = Object.keys(perMember).reduce((acc, mat) => {
+            const target = perMember[mat] || 0;
+            const deliveredQty = Number(delivered[mat]?.[memberIndex]) || 0;
+              
+            acc.target += target;
+            acc.delivered += deliveredQty;
+            return acc;
+        }, { target: 0, delivered: 0 });
+          
+        const pct = individualProgress.target > 0   
+            ? Math.min(100, Math.round((individualProgress.delivered / individualProgress.target) * 100))
+            : 0;
       
-    const pct = individualProgress.target > 0   
-        ? Math.min(100, Math.round((individualProgress.delivered / individualProgress.target) * 100))
-        : 0;
-  
-    return (
-        <div className="mt-8 pt-4 border-t border-indigo-200">
-            <h3 className="text-xl font-bold mb-4 text-indigo-600">Progresso Individual de {memberName}</h3>
-            
-            <div className="p-3 mb-4 border border-indigo-300 rounded-lg bg-indigo-50/70">
-                <div className="flex justify-between items-center mb-2">
-                    <span className="font-semibold text-indigo-800">Progresso Geral</span>
-                    <span className="font-bold text-lg text-indigo-700">{pct}%</span>
+        return (
+            <div className="mt-8 pt-4 border-t border-indigo-200">
+                <h3 className="text-xl font-bold mb-4 text-indigo-600">Progresso Individual de {memberName}</h3>
+                
+                <div className="p-3 mb-4 border border-indigo-300 rounded-lg bg-indigo-50/70">
+                    <div className="flex justify-between items-center mb-2">
+                        <span className="font-semibold text-indigo-800">Progresso Geral</span>
+                        <span className="font-bold text-lg text-indigo-700">{pct}%</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                        {/* A CORREÇÃO SUGERIDA É APLICADA AQUI, GARANTINDO O FECHAMENTO DAS ASPAS */}
+                        <div   
+                            style={{width:`${pct}%`}}   
+                            className="h-3 rounded-full bg-indigo-500 transition-all duration-500 ease-out" 
+                        ></div>
+                    </div>
+                    <div className="text-xs text-indigo-600 mt-1">
+                        **{individualProgress.delivered}** entregues de **{individualProgress.target}** unidades
+                    </div>
                 </div>
-                <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
-                    <div   
-                        style={{width:`${pct}%`}}   
-                        className="h-3 rounded-full bg-indigo-500 transition-all duration-
+
+                <h4 className="font-semibold text-gray-700 mb-2">Status por Material:</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+                    {Object.keys(perMember).map(mat => {
+                        const status = getStatusForMemberDelivery(mat, memberIndex);
+                        const deliveredQty = Number(delivered[mat]?.[memberIndex]) || 0;
+                        return (
+                            <div key={mat} className={`flex justify-between p-3 border rounded-lg ${status.label === 'Atingida' ? 'bg-green-50 border-green-300' : 'bg-red-50 border-red-300'}`}>
+                                <span className="font-medium text-gray-700">{mat} (Meta: {perMember[mat]})</span>
+                                <span className={`font-bold ${status.label === 'Atingida' ? 'text-green-700' : 'text-red-700'}`}>
+                                    {deliveredQty} / {perMember[mat]}
+                                    <span className={`ml-2 px-2 py-0.5 rounded-full text-white text-xs ${status.color}`}>
+                                        {status.label === "Atingida" ? "✅" : status.label === "Parcial" ? "🟡" : "❌"}
+                                    </span>
+                                </span>
+                            </div>
+                        );
+                    })}
+                </div>
+      
+                <button   
+                    onClick={() => setViewingMemberIndex(null)}
+                    className="mt-2 px-4 py-2 bg-indigo-500 text-white font-semibold rounded-lg hover:bg-indigo-600 transition duration-300"
+                >
+                    Fechar Visualização
+                </button>
+            </div>
+        );
+      };
+  
+  const ConfigContent = (
+    <div className="bg-white p-6 rounded-xl shadow-md border border-gray-200">
+      <h2 className="text-xl font-bold mb-4 text-indigo-600">Configuração de Produção</h2>
+      {Object.keys(production).map(prod=>(
+        <div key={prod} className="flex flex-col sm:flex-row items-start sm:items-center gap-2 mb-3">
+          <label className="w-full sm:w-32 text-gray-700 font-medium">{prod}</label>
+          <input   
+            type="text"
+            inputMode="numeric"
+            pattern="\d*"
+            min={0}   
+            value={production[prod]}   
+            onChange={e=>updateProduction(prod,e.target.value)}   
+            className="flex-grow border border-gray-300 rounded-lg px-3 py-2 text-right focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition duration-200"
+          />
+        </div>
+      ))}
+        
+      <div className="mt-6">
+        <h3 className="font-bold text-gray-700 mb-2">Metas por Pessoa (Total: {memberCount} Membros)</h3>
+        {memberCount > 0 ? (
+          <ul className="list-disc list-inside text-sm text-gray-600 grid grid-cols-2 gap-2">
+            {Object.keys(perMember).map(mat=>(
+              <li key={mat}>**{mat}**: {perMember[mat]} unidades</li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm text-red-500 font-medium">⚠️ Adicione membros na aba 'Gerenciar Membros' para calcular as metas!</p>
+        )}
+      </div>
+    </div>
+  );
+  
+  const ControlContent = (
+    <div className="bg-white p-6 rounded-xl shadow-md border border-gray-200">
+      <h2 className="text-xl font-bold mb-4 text-indigo-600">Registro de Entregas por Membro</h2>
+      <p className="mb-4 text-sm text-gray-500 italic">**Digite aqui a quantidade de material entregue por cada membro.**</p>
+      {memberCount === 0 ? (
+        <div className="text-center p-8 bg-yellow-50 rounded-lg">
+          <p className="text-lg font-semibold text-yellow-700">Por favor, adicione membros na aba "Gerenciar Membros" para começar o controle de entregas.</p>
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full table-auto border-collapse text-sm">
+            <thead>
+              <tr className="bg-gray-100">
+                <th className="border border-gray-200 px-3 py-2 text-left font-semibold text-gray-700 whitespace-nowrap">Material</th>
+                <th className="border border-gray-200 px-3 py-2 text-center font-semibold text-gray-700 whitespace-nowrap">Meta / Membro</th>
+                {memberNames.map((n,i)=><th key={i} className="border border-gray-200 px-3 py-2 text-center font-semibold text-gray-700 whitespace-nowrap">{n}</th>)}
+              </tr>
+            </thead>
+            <tbody>
+            {Object.keys(perMember).map(mat=>{
+              return (
+                <tr key={mat} className="hover:bg-gray-50 transition-colors duration-150">
+                  <td className="border border-gray-200 px-3 py-2 font-medium text-gray-800 whitespace-nowrap">{mat}</td>
+                  <td className="border border-gray-200 px-3 py-2 text-center text-gray-600 font-semibold">{perMember[mat]}</td>
+                  {memberNames.map((_,mi)=>{
+                    return (
+                      <td key={mi} className="border border-gray-200 px-1 py-1 text-center">
+                          <input   
+                              type="text"
+                              inputMode="numeric"
+                              pattern="\d*"
+                              min={0}   
+                              value={delivered[mat]?.[mi] ?? ''}   
+                              onChange={e=>updateDelivered(mat,mi,e.target.value)}   
+                              className="w-full text-right px-2 py-1 bg-gray-50 border border-gray-300 rounded focus:ring-1 focus:ring-indigo-300 focus:border-indigo-300 transition duration-150"
+                          />
+                      </td>
+                    );
+                  })}
+                </tr>
+              );
+            })}
+            </tbody>
+            <tfoot>
+              <tr className="bg-indigo-100/70 border-t-2 border-indigo-300">
+                <td className="border border-gray-200 px-3 py-2 font-bold text-indigo-700 whitespace-nowrap">TOTAL ENTREGUE</td>
+                <td className="border border-gray-200 px-3 py-2 text-center font-bold text-indigo-700"></td>
+                {memberNames.map((_, mi) => (
+                  <td key={mi} className="border border-gray-200 px-3 py-2 text-center font-bold text-indigo-700">
+                    {getMemberTotalDelivered(mi)}
+                  </td>
+                ))}
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+  
+  const StatusContent = (
+    <div className="bg-white p-6 rounded-xl shadow-md border border-gray-200">
+      <h2 className="text-xl font-bold mb-4 text-indigo-600">Progresso Geral da Semana</h2>
+      <p className="mb-4 text-sm text-gray-500 italic">Visão consolidada do total de material entregue pela equipe.</p>
+      <div className="space-y-4">
+        {Object.keys(totals).map(mat=>{   
+          const deliveredTot=getMaterialTotalDelivered(mat);   
+          const pct=Math.min(100,totals[mat] > 0 ? Math.round((deliveredTot/totals[mat])*100) : 0);   
+          const status = getStatusForTotalDelivery(mat);
+          const barColor = status.color.replace('bg-', 'bg-');
+            
+          return (
+            <div key={mat} className="border border-gray-200 rounded-lg p-3 bg-white hover:shadow-lg transition duration-200">
+              <div className="flex justify-between items-center mb-2">
+                <div className="font-semibold text-gray-700">{mat}</div>
+                <div className="flex items-center">
+                    <span className={`px-2 py-0.5 rounded-full text-white text-xs font-medium ${status.color}`}>
+                        {status.label}
+                    </span>
+                    <span className="ml-3 font-bold text-lg text-indigo-600">{pct}%</span>
+                </div>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                <div   
+                  style={{width:`${pct}%`}}   
+                  className={`h-3 rounded-full ${barColor} transition-all duration-500 ease-out`}
+                ></div>
+              </div>
+              <div className="text-xs text-gray-500 mt-1 flex justify-between">
+                <span>Total Entregue: **{deliveredTot}**</span>
+                <span>Meta Total: **{totals[mat]}**</span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+
+    const RankingAndHistoryContent = (
+        <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200 space-y-8">
+            <h2 className="text-2xl font-bold mb-4 text-indigo-700 border-b pb-2">🏆 Ranking Atual e Histórico</h2>
+            
+            <div className="border border-green-300 rounded-xl p-4 bg-green-50/50">
+                <h3 className="text-xl font-bold mb-4 text-green-700">Ranking Atual (Progresso Individual)</h3>
+                
+                {currentRanking.length === 0 || memberCount === 0 ? (
+                    <p className="text-sm text-red-500 font-medium">⚠️ Adicione membros e configure as metas na aba 'Configuração' para visualizar o ranking.</p>
+                ) : (
+                    <div className="overflow-x-auto">
+                        <table className="min-w-full table-auto text-sm">
+                            <thead>
+                                <tr className="bg-green-200">
+                                    <th className="px-3 py-2 text-left font-semibold text-green-800">#</th>
+                                    <th className="px-3 py-2 text-left font-semibold text-green-800">Membro</th>
+                                    <th className="px-3 py-2 text-center font-semibold text-green-800">Medalha</th>
+                                    <th className="px-3 py-2 text-center font-semibold text-green-800">Entregue</th>
+                                    <th className="px-3 py-2 text-center font-semibold text-green-800">Meta</th>
+                                    <th className="px-3 py-2 text-center font-semibold text-green-800">% Concluído</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {currentRanking.map((item, idx) => (
+                                    <tr key={item.index} className={`border-t border-gray-100 ${idx < 3 ? 'bg-yellow-50 font-bold' : 'hover:bg-gray-50'}`}>
+                                        <td className="px-3 py-2 text-center font-extrabold text-lg">{idx + 1}</td>
+                                        <td className="px-3 py-2 font-medium text-gray-800">{item.name}</td>
+                                        <td className="px-3 py-2 text-center text-xl">{item.medal.split(' ')[0]}</td>
+                                        <td className="px-3 py-2 text-center text-green-700">{item.totalDelivered}</td>
+                                        <td className="px-3 py-2 text-center text-gray-500">{item.totalTarget}</td>
+                                        <td className="px-3 py-2 text-center text-xl text-indigo-600 font-extrabold">{item.pct}%</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+            </div>
+            
+            <div className="pt-4 border-t border-gray-200">
+                <h3 className="text-xl font-bold mb-3 text-red-600">Ações de Controle Mensal</h3>
+                <p className="mb-4 text-sm text-gray-600">
+                    Ao fechar o mês, o progresso atual é salvo no histórico e todos os campos de entrega (Controle de Entregas) são zerados, iniciando um novo ciclo de farm.
+                </p>
+                <button
+                    onClick={handleCloseMonth}
+                    disabled={memberCount === 0 || Object.keys(totals).length === 0 || Object.values(totals).every(t => t === 0)}
+                    className="px-6 py-3 bg-red-500 text-white font-semibold rounded-lg hover:bg-red-600 transition duration-300 disabled:bg-red-300"
+                >
+                    🗓️ Fechar Mês Atual e Zerar Entregas
+                </button>
+                {Object.values(totals).every(t => t === 0) && memberCount > 0 && (
+                    <p className="text-sm text-red-500 mt-2">⚠️ Configure metas na aba 'Configuração' antes de fechar o mês (Metas atuais estão em 0).</p>
+                )}
+            </div>
+            
+            <div className="pt-6 border-t border-gray-200">
+                <h3 className="text-xl font-bold mb-4 text-indigo-600">Histórico de Meses Anteriores</h3>
+                <MonthlyHistoryTable history={monthlyHistory} />
+            </div>
+        </div>
+    );
+
+  const MemberContent = (
+    <div className="bg-white p-6 rounded-xl shadow-md border border-gray-200">
+        <h2 className="text-xl font-bold mb-4 text-indigo-600">Gerenciar Membros da Equipe</h2>
+        
+        <div className="mb-6 pb-4 border-b border-gray-200">
+            <h3 className="font-semibold text-gray-700 mb-2">Adicionar Novo Membro</h3>
+            <form onSubmit={(e) => {
+                e.preventDefault();
+                const newName = e.target.newMemberName.value.trim();
+                if (newName) {
+                    handleAddMember(newName);
+                    e.target.newMemberName.value = '';
+                }
+            }} className="flex gap-2">
+                <input
+                    type="text"
+                    name="newMemberName"
+                    placeholder="Nome do novo membro"
+                    required
+                    className="flex-grow border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-400"
+                />
+                <button
+                    type="submit"
+                    className="px-4 py-2 bg-green-500 text-white font-semibold rounded-lg hover:bg-green-600 transition duration-300"
+                >
+                    Adicionar
+                </button>
+            </form>
+        </div>
+
+        <h3 className="font-semibold text-gray-700 mb-2">Membros Atuais ({memberCount})</h3>
+        <div className="space-y-3">
+            {memberNames.map((name, index) => (
+                <div key={index} className="flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                    <span className="font-medium text-gray-800 flex-1">
+                        {index + 1}. {name}
+                    </span>
+                    <div className="flex gap-2">
+                        <button
+                            onClick={() => setViewingMemberIndex(index)}
+                            className="text-sm px-3 py-1 bg-indigo-500 text-white rounded hover:bg-indigo-600 transition"
+                            title="Ver Progresso"
+                        >
+                            Ver Progresso
+                        </button>
+                        
+                        <input
+                            type="text"
+                            defaultValue={name}
+                            onBlur={(e) => handleRenameMember(index, e.target.value.trim() || name)}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                    e.target.blur();
+                                }
+                            }}
+                            className="w-24 text-sm border border-gray-300 rounded px-2 py-1 text-center focus:ring-1 focus:ring-indigo-300"
+                            title="Clique para renomear"
+                        />
+                        
+                        <button
+                            onClick={() => handleRemoveMember(index)}
+                            className="text-sm px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 transition"
+                            title="Remover Membro"
+                        >
+                            Remover
+                        </button>
+                    </div>
+                </div>
+            ))}
+        </div>
+
+        {viewingMemberIndex !== null && (
+            <MemberProgressViewer 
+                memberIndex={viewingMemberIndex}
+                memberNames={memberNames}
+                perMember={perMember}
+                delivered={delivered}
+                getStatusForMemberDelivery={getStatusForMemberDelivery}
+                setViewingMemberIndex={setViewingMemberIndex}
+            />
+        )}
+    </div>
+  );
+  
+  const renderContent = () => {
+    switch (activeTab) {
+      case 'Configuração e Metas':
+        return ConfigContent;
+      case 'Controle de Entregas':
+        return ControlContent;
+      case 'Resumo e Status':
+        return StatusContent;
+      case 'Ranking e Histórico':
+        return RankingAndHistoryContent;
+      case 'Gerenciar Membros':
+        return MemberContent;
+      default:
+        return ControlContent;
+    }
+  };
+  
+  if (loading) {
+    return (
+        <div className="text-center p-10 text-xl font-semibold text-indigo-700">
+            Carregando Dados da Nuvem e Painel... (Se for a primeira vez, pode estar migrando dados locais.)
+        </div>
+    );
+  }
+
+  if (error) {
+    return (
+        <div className="text-center p-10 bg-red-100 border border-red-400 text-red-700 font-semibold rounded-lg">
+            <h1 className="text-2xl mb-2">⚠️ Erro Crítico</h1>
+            <p className="text-sm">Falha no Firebase Auth ou na conexão com o Firestore: {error}</p>
+            <p className="text-sm mt-2">Verifique as Regras de Segurança e o Login Anônimo no Firebase.</p>
+        </div>
+    );
+  }
+
+  return (
+    <div className="max-w-6xl mx-auto">
+      <h1 className="text-3xl font-bold text-indigo-800 mb-6 border-b-2 border-indigo-200 pb-2">Controle de Farm (Sincronizado)</h1>
+      <Tabs tabs={TABS} activeTab={activeTab} setActiveTab={setActiveTab} />
+      {renderContent()}
+    </div>
+  );
+}
+
+export default FarmDashboard;
