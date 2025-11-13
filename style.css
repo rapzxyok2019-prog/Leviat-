@@ -289,3 +289,12 @@ h2 {
     margin: 10px 0;
     border: 1px solid #f5c6cb;
 }
+.sem-dados {
+    text-align: center;
+    padding: 40px;
+    color: #6c757d;
+    font-style: italic;
+    background: #f8f9fa;
+    border-radius: 10px;
+    border: 2px dashed #dee2e6;
+}
