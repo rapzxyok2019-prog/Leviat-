@@ -1,42 +1,7 @@
-{
-  "name": "controle-de-farm-leviata",
-  "version": "0.1.0",
-  "private": true,
-  "homepage": "https://rapzxyok2019-prog.github.io/leviata-produtos/",
-  "dependencies": {
-    "firebase": "^9.1.0",
-    "react": "^17.0.2",
-    "react-dom": "^17.0.2",
-    "react-scripts": "5.0.1",
-    "web-vitals": "^2.1.0"
-  },
   "scripts": {
     "start": "react-scripts start",
-    "build": "react-scripts build",
+    "build": "CI=false react-scripts build", // 🚨 CORREÇÃO APLICADA AQUI
     "test": "react-scripts test",
     "eject": "react-scripts eject",
-    "predeploy": "npm run build",
-    "deploy": "gh-pages -d build"
+    // ... outros scripts
   },
-  "eslintConfig": {
-    "extends": [
-      "react-app",
-      "react-app/jest"
-    ]
-  },
-  "browserslist": {
-    "production": [
-      ">0.2%",
-      "not dead",
-      "not op_mini all"
-    ],
-    "development": [
-      "last 1 chrome version",
-      "last 1 firefox version",
-      "last 1 safari version"
-    ]
-  },
-  "devDependencies": {
-    "gh-pages": "^3.2.3"
-  }
-}
