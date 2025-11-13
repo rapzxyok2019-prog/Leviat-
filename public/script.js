@@ -1,6 +1,18 @@
-// Configurações
-const SHEET_URL = 'https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms/gviz/tq?tqx=out:json';
-let dadosPlanilha = [];
+// Configuração do Firebase
+const firebaseConfig = {
+    apiKey: "sua-api-key-aqui",
+    authDomain: "seu-projeto.firebaseapp.com",
+    projectId: "seu-projeto-id",
+    storageBucket: "seu-projeto.appspot.com",
+    messagingSenderId: "seu-sender-id",
+    appId: "sua-app-id"
+};
+
+// Inicializar Firebase
+const app = firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+let dadosMedicamentos = [];
 let editandoIndex = null;
 
 // Elementos DOM
@@ -9,44 +21,30 @@ const listaMedicamentos = document.getElementById('listaMedicamentos');
 const btnSalvar = document.getElementById('btnSalvar');
 const btnCancelar = document.getElementById('btnCancelar');
 
-// Carregar dados da planilha
-async function carregarPlanilha() {
+// Carregar dados do Firestore
+async function carregarDados() {
     try {
-        console.log('Carregando planilha...');
+        console.log('Carregando dados do Firestore...');
         
-        // Remove a mensagem de carregamento
-        document.body.innerHTML = document.body.innerHTML.replace('Carregando Dados da Nuvem e Painel...', '');
+        const snapshot = await db.collection('medicamentos').get();
+        dadosMedicamentos = [];
         
-        const response = await fetch(SHEET_URL);
-        if (!response.ok) throw new Error('Erro ao carregar planilha');
+        snapshot.forEach(doc => {
+            dadosMedicamentos.push({
+                id: doc.id,
+                ...doc.data()
+            });
+        });
         
-        const data = await response.text();
-        const jsonStr = data.substring(47).slice(0, -2);
-        const json = JSON.parse(jsonStr);
-        const rows = json.table.rows;
-        
-        dadosPlanilha = rows.map((row, index) => {
-            const cells = row.c;
-            return {
-                id: index,
-                nome: cells[0] ? (cells[0].v || '') : '',
-                quantidade: cells[1] ? (cells[1].v || 0) : 0,
-                preco: cells[2] ? (cells[2].v || 0) : 0,
-                fornecedor: cells[3] ? (cells[3].v || '') : '',
-                categoria: cells[4] ? (cells[4].v || '') : ''
-            };
-        }).filter(item => item.nome !== '');
-        
+        console.log('Dados carregados:', dadosMedicamentos);
         exibirMedicamentos();
         
     } catch (error) {
-        console.error('Erro:', error);
-        // Remove mensagem de carregamento
-        document.body.innerHTML = document.body.innerHTML.replace('Carregando Dados da Nuvem e Painel...', '');
-        // Dados de exemplo
-        dadosPlanilha = [
-            { id: 1, nome: "Paracetamol", quantidade: 100, preco: 5.50, fornecedor: "Farma Ltda", categoria: "Analgésico" },
-            { id: 2, nome: "Dipirona", quantidade: 50, preco: 3.20, fornecedor: "Med Express", categoria: "Analgésico" }
+        console.error('Erro ao carregar dados:', error);
+        // Dados de exemplo se Firebase falhar
+        dadosMedicamentos = [
+            { id: '1', nome: "Paracetamol", quantidade: 100, preco: 5.50, fornecedor: "Farma Ltda", categoria: "Analgésico" },
+            { id: '2', nome: "Dipirona", quantidade: 50, preco: 3.20, fornecedor: "Med Express", categoria: "Analgésico" }
         ];
         exibirMedicamentos();
     }
@@ -57,7 +55,7 @@ function exibirMedicamentos() {
     if (!listaMedicamentos) return;
     
     listaMedicamentos.innerHTML = '';
-    dadosPlanilha.forEach((med, index) => {
+    dadosMedicamentos.forEach((med, index) => {
         const li = document.createElement('li');
         li.className = 'medicamento-item';
         li.innerHTML = `
@@ -77,8 +75,8 @@ function exibirMedicamentos() {
     });
 }
 
-// Resto do código permanece igual...
-formulario.addEventListener('submit', function(e) {
+// Adicionar/Editar medicamento
+formulario.addEventListener('submit', async function(e) {
     e.preventDefault();
     
     const medicamento = {
@@ -86,24 +84,34 @@ formulario.addEventListener('submit', function(e) {
         quantidade: parseInt(document.getElementById('quantidade').value),
         preco: parseFloat(document.getElementById('preco').value),
         fornecedor: document.getElementById('fornecedor').value,
-        categoria: document.getElementById('categoria').value
+        categoria: document.getElementById('categoria').value,
+        timestamp: firebase.firestore.FieldValue.serverTimestamp()
     };
     
-    if (editandoIndex !== null) {
-        dadosPlanilha[editandoIndex] = { ...medicamento, id: dadosPlanilha[editandoIndex].id };
-        editandoIndex = null;
-        btnCancelar.style.display = 'none';
-    } else {
-        medicamento.id = Date.now();
-        dadosPlanilha.push(medicamento);
+    try {
+        if (editandoIndex !== null) {
+            // Editar existente
+            const medId = dadosMedicamentos[editandoIndex].id;
+            await db.collection('medicamentos').doc(medId).update(medicamento);
+            editandoIndex = null;
+            btnCancelar.style.display = 'none';
+        } else {
+            // Adicionar novo
+            await db.collection('medicamentos').add(medicamento);
+        }
+        
+        await carregarDados(); // Recarregar dados atualizados
+        formulario.reset();
+        
+    } catch (error) {
+        console.error('Erro ao salvar:', error);
+        alert('Erro ao salvar medicamento.');
     }
-    
-    exibirMedicamentos();
-    formulario.reset();
 });
 
+// Editar medicamento
 function editarMedicamento(index) {
-    const med = dadosPlanilha[index];
+    const med = dadosMedicamentos[index];
     document.getElementById('nome').value = med.nome;
     document.getElementById('quantidade').value = med.quantidade;
     document.getElementById('preco').value = med.preco;
@@ -114,19 +122,28 @@ function editarMedicamento(index) {
     formulario.scrollIntoView({ behavior: 'smooth' });
 }
 
-function excluirMedicamento(index) {
+// Excluir medicamento
+async function excluirMedicamento(index) {
     if (confirm('Tem certeza que deseja excluir este medicamento?')) {
-        dadosPlanilha.splice(index, 1);
-        exibirMedicamentos();
+        try {
+            const medId = dadosMedicamentos[index].id;
+            await db.collection('medicamentos').doc(medId).delete();
+            await carregarDados(); // Recarregar dados atualizados
+        } catch (error) {
+            console.error('Erro ao excluir:', error);
+            alert('Erro ao excluir medicamento.');
+        }
     }
 }
 
+// Cancelar edição
 btnCancelar.addEventListener('click', function() {
     editandoIndex = null;
     formulario.reset();
     btnCancelar.style.display = 'none';
 });
 
+// Pesquisar medicamentos
 document.getElementById('campoPesquisa').addEventListener('input', function(e) {
     const termo = e.target.value.toLowerCase();
     const itens = document.querySelectorAll('.medicamento-item');
@@ -138,5 +155,7 @@ document.getElementById('campoPesquisa').addEventListener('input', function(e) {
 
 // Inicializar
 document.addEventListener('DOMContentLoaded', function() {
-    carregarPlanilha();
+    // Remove mensagem de carregamento se existir
+    document.body.innerHTML = document.body.innerHTML.replace('Carregando Dados da Nuvem e Painel...', '');
+    carregarDados();
 });
