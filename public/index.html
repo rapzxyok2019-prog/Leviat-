@@ -59,4 +59,23 @@
                 </div>
                 
                 <div class="form-buttons">
-                    <button type="submit"
+                    <button type="submit" id="btnSalvar" class="btn-salvar">Salvar Medicamento</button>
+                    <button type="button" id="btnCancelar" class="btn-cancelar" style="display: none;">Cancelar Edição</button>
+                </div>
+            </form>
+        </section>
+
+        <section class="lista-section">
+            <h2>Estoque de Medicamentos</h2>
+            <div class="lista-header">
+                <span>Mostrando <span id="contadorMedicamentos">0</span> medicamentos</span>
+            </div>
+            <ul id="listaMedicamentos" class="lista-medicamentos">
+                <!-- Lista de medicamentos será carregada aqui pelo JavaScript -->
+            </ul>
+        </section>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
