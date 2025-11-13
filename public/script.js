@@ -12,22 +12,18 @@ const btnCancelar = document.getElementById('btnCancelar');
 // Carregar dados da planilha
 async function carregarPlanilha() {
     try {
-        console.log('Iniciando carregamento da planilha...');
+        console.log('Carregando planilha...');
+        
+        // Remove a mensagem de carregamento
+        document.body.innerHTML = document.body.innerHTML.replace('Carregando Dados da Nuvem e Painel...', '');
         
         const response = await fetch(SHEET_URL);
-        if (!response.ok) {
-            throw new Error(`Erro HTTP: ${response.status}`);
-        }
+        if (!response.ok) throw new Error('Erro ao carregar planilha');
         
         const data = await response.text();
-        console.log('Dados recebidos:', data.substring(0, 100) + '...');
-        
-        // Processar dados do Google Sheets
         const jsonStr = data.substring(47).slice(0, -2);
         const json = JSON.parse(jsonStr);
         const rows = json.table.rows;
-        
-        console.log('Número de linhas:', rows.length);
         
         dadosPlanilha = rows.map((row, index) => {
             const cells = row.c;
@@ -39,27 +35,28 @@ async function carregarPlanilha() {
                 fornecedor: cells[3] ? (cells[3].v || '') : '',
                 categoria: cells[4] ? (cells[4].v || '') : ''
             };
-        }).filter(item => item.nome !== ''); // Remove linhas vazias
+        }).filter(item => item.nome !== '');
         
-        console.log('Dados processados:', dadosPlanilha);
         exibirMedicamentos();
         
     } catch (error) {
-        console.error('Erro ao carregar planilha:', error);
-        // Dados de exemplo para teste
+        console.error('Erro:', error);
+        // Remove mensagem de carregamento
+        document.body.innerHTML = document.body.innerHTML.replace('Carregando Dados da Nuvem e Painel...', '');
+        // Dados de exemplo
         dadosPlanilha = [
             { id: 1, nome: "Paracetamol", quantidade: 100, preco: 5.50, fornecedor: "Farma Ltda", categoria: "Analgésico" },
             { id: 2, nome: "Dipirona", quantidade: 50, preco: 3.20, fornecedor: "Med Express", categoria: "Analgésico" }
         ];
         exibirMedicamentos();
-        alert('Erro ao carregar planilha. Usando dados de exemplo.');
     }
 }
 
-// Exibir medicamentos na lista
+// Exibir medicamentos
 function exibirMedicamentos() {
-    listaMedicamentos.innerHTML = '';
+    if (!listaMedicamentos) return;
     
+    listaMedicamentos.innerHTML = '';
     dadosPlanilha.forEach((med, index) => {
         const li = document.createElement('li');
         li.className = 'medicamento-item';
@@ -80,7 +77,7 @@ function exibirMedicamentos() {
     });
 }
 
-// Adicionar/Editar medicamento
+// Resto do código permanece igual...
 formulario.addEventListener('submit', function(e) {
     e.preventDefault();
     
@@ -93,12 +90,10 @@ formulario.addEventListener('submit', function(e) {
     };
     
     if (editandoIndex !== null) {
-        // Editar existente
         dadosPlanilha[editandoIndex] = { ...medicamento, id: dadosPlanilha[editandoIndex].id };
         editandoIndex = null;
         btnCancelar.style.display = 'none';
     } else {
-        // Adicionar novo
         medicamento.id = Date.now();
         dadosPlanilha.push(medicamento);
     }
@@ -107,24 +102,18 @@ formulario.addEventListener('submit', function(e) {
     formulario.reset();
 });
 
-// Editar medicamento
 function editarMedicamento(index) {
     const med = dadosPlanilha[index];
-    
     document.getElementById('nome').value = med.nome;
     document.getElementById('quantidade').value = med.quantidade;
     document.getElementById('preco').value = med.preco;
     document.getElementById('fornecedor').value = med.fornecedor;
     document.getElementById('categoria').value = med.categoria;
-    
     editandoIndex = index;
     btnCancelar.style.display = 'inline-block';
-    
-    // Rolagem suave para o formulário
     formulario.scrollIntoView({ behavior: 'smooth' });
 }
 
-// Excluir medicamento
 function excluirMedicamento(index) {
     if (confirm('Tem certeza que deseja excluir este medicamento?')) {
         dadosPlanilha.splice(index, 1);
@@ -132,18 +121,15 @@ function excluirMedicamento(index) {
     }
 }
 
-// Cancelar edição
 btnCancelar.addEventListener('click', function() {
     editandoIndex = null;
     formulario.reset();
     btnCancelar.style.display = 'none';
 });
 
-// Pesquisar medicamentos
 document.getElementById('campoPesquisa').addEventListener('input', function(e) {
     const termo = e.target.value.toLowerCase();
     const itens = document.querySelectorAll('.medicamento-item');
-    
     itens.forEach(item => {
         const texto = item.textContent.toLowerCase();
         item.style.display = texto.includes(termo) ? 'flex' : 'none';
@@ -151,4 +137,6 @@ document.getElementById('campoPesquisa').addEventListener('input', function(e) {
 });
 
 // Inicializar
-carregarPlanilha();
+document.addEventListener('DOMContentLoaded', function() {
+    carregarPlanilha();
+});
