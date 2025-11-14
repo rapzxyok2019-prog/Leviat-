@@ -32,49 +32,6 @@ const RECIPES = {
   "Flipper MK3": { Alumínio: 25, Ferro: 25, Cobre: 25, "Emb. Plástica": 25, Titânio: 1 }
 };
 
-// --- Componente Skeleton Loading ---
-const SkeletonLoader = () => (
-  <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-blue-900 flex items-center justify-center p-6">
-    <div className="bg-white/10 backdrop-blur-lg rounded-3xl shadow-2xl p-8 max-w-md w-full border border-white/20">
-      <div className="animate-pulse">
-        <div className="flex justify-center mb-6">
-          <div className="w-20 h-20 bg-white/20 rounded-full"></div>
-        </div>
-        <div className="space-y-4">
-          <div className="h-4 bg-white/20 rounded w-3/4 mx-auto"></div>
-          <div className="h-3 bg-white/20 rounded w-1/2 mx-auto"></div>
-          <div className="mt-6 space-y-3">
-            <div className="h-3 bg-white/20 rounded"></div>
-            <div className="h-3 bg-white/20 rounded"></div>
-            <div className="h-3 bg-white/20 rounded w-5/6"></div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-);
-
-// --- Barra de Progresso Animada ---
-const AnimatedProgressBar = ({ percentage, color = 'from-blue-500 to-purple-500', height = 'h-3' }) => (
-  <div className={`w-full bg-gray-700 rounded-full ${height} overflow-hidden shadow-inner`}>
-    <div 
-      className={`h-full bg-gradient-to-r ${color} rounded-full transition-all duration-1000 ease-out shadow-lg`}
-      style={{ 
-        width: `${percentage}%`,
-        backgroundSize: '200% 100%',
-        animation: 'shimmer 2s infinite'
-      }}
-    ></div>
-  </div>
-);
-
-// --- Card com Efeito Hover ---
-const AnimatedCard = ({ children, className = '' }) => (
-  <div className={`bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 shadow-2xl hover:shadow-3xl transition-all duration-500 hover:scale-105 hover:border-white/40 ${className}`}>
-    {children}
-  </div>
-);
-
 // --- Hooks de Sincronização e Estado ---
 const useSharedData = () => {
   const [production, setProductionState] = useState({ Colete: '200', Algema: '100', Capuz: '50', "Flipper MK3": '20' });
@@ -83,7 +40,6 @@ const useSharedData = () => {
   const [history, setHistory] = useState([]);
   const [isDbReady, setIsDbReady] = useState(false);
   const [userId, setUserId] = useState(null);
-  const [syncProgress, setSyncProgress] = useState(0);
 
   // Efeito 1: Autenticação
   useEffect(() => {
@@ -92,18 +48,6 @@ const useSharedData = () => {
         await setPersistence(auth, browserLocalPersistence);
         await signInAnonymously(auth);
         setUserId(auth.currentUser.uid);
-        
-        // Simula progresso de sincronização
-        const interval = setInterval(() => {
-          setSyncProgress(prev => {
-            if (prev >= 100) {
-              clearInterval(interval);
-              return 100;
-            }
-            return prev + 10;
-          });
-        }, 200);
-        
       } catch (error) {
         console.error("Erro na autenticação:", error);
         setUserId('local-user-' + Date.now());
@@ -116,15 +60,7 @@ const useSharedData = () => {
   useEffect(() => {
     if (!userId) return;
 
-    let loadedListeners = 0;
-    const totalListeners = 4;
-
-    const updateProgress = () => {
-      loadedListeners++;
-      setSyncProgress(Math.min(100, (loadedListeners / totalListeners) * 100));
-    };
-
-    console.log("🚀 Iniciando sincronização Firebase...");
+    console.log("Iniciando sincronização Firebase...");
     
     // Listener Produção
     const unsubProduction = onSnapshot(PRODUCTION_DOC_REF, (docSnap) => {
@@ -133,7 +69,6 @@ const useSharedData = () => {
       } else if (!docSnap.exists()) {
         setDoc(PRODUCTION_DOC_REF, { production });
       }
-      updateProgress();
     });
 
     // Listener Membros
@@ -143,7 +78,6 @@ const useSharedData = () => {
       } else if (!docSnap.exists()) {
         setDoc(MEMBERS_DOC_REF, { memberNames });
       }
-      updateProgress();
     });
 
     // Listener Entregas
@@ -153,7 +87,6 @@ const useSharedData = () => {
       } else if (!docSnap.exists()) {
         setDoc(DELIVERED_DOC_REF, { delivered: {} });
       }
-      updateProgress();
     });
 
     // Listener Histórico
@@ -161,12 +94,9 @@ const useSharedData = () => {
     const unsubHistory = onSnapshot(historyQuery, (snapshot) => {
       const historyList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setHistory(historyList);
-      updateProgress();
     });
 
-    setTimeout(() => {
-      setIsDbReady(true);
-    }, 1000);
+    setIsDbReady(true);
 
     return () => {
       unsubProduction();
@@ -189,7 +119,7 @@ const useSharedData = () => {
     updateDoc(DELIVERED_DOC_REF, { delivered: newDelivered });
   }, []);
 
-  return { production, updateProduction, memberNames, updateMemberNames, delivered, updateDelivered, history, isDbReady, syncProgress };
+  return { production, updateProduction, memberNames, updateMemberNames, delivered, updateDelivered, history, isDbReady };
 };
 
 // --- Funções de Cálculo ---
@@ -241,21 +171,18 @@ function Tabs({ tabs, activeTab, setActiveTab }) {
   };
   
   return (
-    <div className="flex flex-wrap gap-3 mb-8">
+    <div className="flex flex-wrap gap-2 mb-6 border-b border-gray-200 pb-2">
       {tabs.map((tab, index) => (
         <button
           key={index}
           onClick={() => setActiveTab(tab)}
-          className={`px-6 py-4 rounded-2xl font-bold text-lg transition-all duration-500 transform hover:scale-110 ${
+          className={`px-4 py-2 rounded-lg font-medium transition duration-200 ${
             activeTab === tab 
-              ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-2xl animate-pulse' 
-              : 'bg-white/10 text-white/80 hover:bg-white/20 border border-white/20 shadow-lg hover:shadow-xl'
+              ? 'bg-blue-500 text-white shadow-md' 
+              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
           }`}
         >
-          <span className="flex items-center gap-3">
-            <span className="text-xl">{icons[tab] || ''}</span>
-            {tab}
-          </span>
+          {icons[tab] || ''} {tab}
         </button>
       ))}
     </div>
@@ -265,7 +192,7 @@ function Tabs({ tabs, activeTab, setActiveTab }) {
 // --- Componente Principal ---
 function FarmDashboard() {
   const TABS = ['Configuração e Metas', 'Controle de Entregas', 'Resumo e Status', 'Ranking e Histórico', 'Gerenciar Membros'];
-  const { production, updateProduction, memberNames, updateMemberNames, delivered, updateDelivered, history, isDbReady, syncProgress } = useSharedData();
+  const { production, updateProduction, memberNames, updateMemberNames, delivered, updateDelivered, history, isDbReady } = useSharedData();
   const [activeTab, setActiveTab] = useState('Controle de Entregas');
   const [viewingMemberIndex, setViewingMemberIndex] = useState(null);
   const memberCount = memberNames.length;
@@ -331,18 +258,18 @@ function FarmDashboard() {
   const getStatusForMemberDelivery = useCallback((mat, memberIndex) => {
     const memberTarget = perMember[mat] || 0;
     const memberDelivered = Number(delivered[mat]?.[memberIndex]) || 0;
-    if(memberTarget === 0) return {label:"N/A", color:"from-gray-400 to-gray-500"};
-    if(memberDelivered >= memberTarget) return {label:"🎯 Atingida",color:"from-green-400 to-emerald-500"};
-    if(memberDelivered >= memberTarget * 0.5) return {label:"📈 Parcial",color:"from-amber-400 to-orange-500"};
-    return {label:"⏳ Pendente",color:"from-red-400 to-pink-500"};
+    if(memberTarget === 0) return {label:"N/A", color:"bg-gray-400"};
+    if(memberDelivered >= memberTarget) return {label:"Atingida",color:"bg-green-600"};
+    if(memberDelivered >= memberTarget * 0.5) return {label:"Parcial",color:"bg-amber-500"};
+    return {label:"Pendente",color:"bg-red-600"};
   }, [perMember, delivered]);
 
   const getStatusForTotalDelivery = useCallback((mat) => {
     const deliveredTot = getMaterialTotalDelivered(mat);
     const targetTotal = totals[mat] || 0;
-    if(deliveredTot>=targetTotal) return {label:"🎯 Atingida",color:"from-green-400 to-emerald-500"};
-    if(deliveredTot>=targetTotal*0.5) return {label:"📈 Parcial",color:"from-amber-400 to-orange-500"};
-    return {label:"⏳ Pendente",color:"from-red-400 to-pink-500"};
+    if(deliveredTot>=targetTotal) return {label:"Atingida",color:"bg-green-600"};
+    if(deliveredTot>=targetTotal*0.5) return {label:"Parcial",color:"bg-amber-500"};
+    return {label:"Pendente",color:"bg-red-600"};
   }, [getMaterialTotalDelivered, totals]);
 
   const getMemberTotalDelivered = useCallback((memberIndex) => {
@@ -418,43 +345,12 @@ function FarmDashboard() {
 
   if (!isDbReady) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-blue-900 flex items-center justify-center p-6">
-        <AnimatedCard className="p-8 max-w-md w-full text-center">
-          <div className="flex justify-center mb-6">
-            <div className="w-20 h-20 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-2xl animate-bounce">
-              ⚡
-            </div>
-          </div>
-          
-          <h2 className="text-2xl font-bold text-white mb-4">Conectando ao Sistema...</h2>
-          
-          <div className="mb-6">
-            <div className="flex justify-between text-white/80 text-sm mb-2">
-              <span>Sincronizando dados</span>
-              <span>{syncProgress}%</span>
-            </div>
-            <AnimatedProgressBar percentage={syncProgress} height="h-3" />
-          </div>
-          
-          <div className="space-y-2 text-white/60 text-sm">
-            <div className="flex items-center gap-2">
-              <div className={`w-2 h-2 rounded-full ${syncProgress >= 25 ? 'bg-green-400 animate-pulse' : 'bg-gray-500'}`}></div>
-              <span>Conectando ao Firebase...</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className={`w-2 h-2 rounded-full ${syncProgress >= 50 ? 'bg-green-400 animate-pulse' : 'bg-gray-500'}`}></div>
-              <span>Carregando dados de produção...</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className={`w-2 h-2 rounded-full ${syncProgress >= 75 ? 'bg-green-400 animate-pulse' : 'bg-gray-500'}`}></div>
-              <span>Sincronizando membros...</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className={`w-2 h-2 rounded-full ${syncProgress >= 100 ? 'bg-green-400 animate-pulse' : 'bg-gray-500'}`}></div>
-              <span>Finalizando sincronização...</span>
-            </div>
-          </div>
-        </AnimatedCard>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+        <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-500 mx-auto mb-4"></div>
+          <h2 className="text-xl font-bold text-gray-800 mb-2">Conectando ao Painel Colaborativo...</h2>
+          <p className="text-gray-600">Sincronizando dados em tempo real com o Firestore.</p>
+        </div>
       </div>
     );
   }
@@ -477,143 +373,109 @@ function FarmDashboard() {
     const pct = individualProgress.target > 0 ? Math.min(100, Math.round((individualProgress.delivered / individualProgress.target) * 100)) : 0;
 
     return (
-      <AnimatedCard className="p-8 mt-8">
-        <h3 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
-          <span className="text-3xl">📊</span>
-          Progresso Individual de {memberName}
-        </h3>
+      <div className="bg-white rounded-xl shadow-lg p-6 mt-4 border-2 border-indigo-200">
+        <h3 className="text-lg font-bold text-gray-800 mb-4">Progresso Individual de {memberName}</h3>
         
-        <div className="mb-8">
-          <div className="flex justify-between text-white/80 mb-3">
-            <span className="font-semibold">Progresso Geral</span>
-            <span className="font-bold text-xl text-white">{pct}%</span>
+        <div className="mb-4">
+          <div className="flex justify-between text-sm text-gray-600 mb-1">
+            <span>Progresso Geral</span>
+            <span>{pct}%</span>
           </div>
-          <AnimatedProgressBar percentage={pct} height="h-4" color="from-cyan-400 to-blue-500" />
-          <p className="text-white/70 text-center mt-4 text-lg">
-            <strong className="text-green-300">{individualProgress.delivered}</strong> entregues de <strong className="text-blue-300">{individualProgress.target}</strong> unidades
+          <div className="w-full bg-gray-200 rounded-full h-4">
+            <div className="bg-indigo-500 h-4 rounded-full transition-all duration-500" style={{width: `${pct}%`}}></div>
+          </div>
+          <p className="text-sm text-gray-600 mt-2 text-center">
+            <strong>{individualProgress.delivered}</strong> entregues de <strong>{individualProgress.target}</strong> unidades
           </p>
         </div>
 
         <div>
-          <h4 className="font-bold text-white text-xl mb-6 flex items-center gap-2">
-            <span>🎯</span>
-            Status por Material
-          </h4>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <h4 className="font-semibold text-gray-700 mb-3">Status por Material:</h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
             {Object.keys(perMember).map(mat => {
               const status = getStatusForMemberDelivery(mat, memberIndex);
               const deliveredQty = Number(delivered[mat]?.[memberIndex]) || 0;
-              const materialPct = perMember[mat] > 0 ? Math.min(100, Math.round((deliveredQty / perMember[mat]) * 100)) : 0;
-              
               return (
-                <AnimatedCard key={mat} className="p-4 hover:scale-105">
-                  <div className="flex justify-between items-center mb-3">
-                    <span className="font-bold text-white text-sm">{mat}</span>
-                    <span className="text-xs text-white/60 bg-white/10 px-2 py-1 rounded">Meta: {perMember[mat]}</span>
-                  </div>
-                  
-                  <div className="mb-2">
-                    <AnimatedProgressBar percentage={materialPct} height="h-2" color={status.color} />
-                  </div>
-                  
+                <div key={mat} className="bg-gray-50 rounded-lg p-3 border border-gray-200">
                   <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium text-white/80">{deliveredQty} / {perMember[mat]}</span>
-                    <span className={`px-3 py-1 rounded-full text-xs font-bold bg-gradient-to-r ${status.color} text-white shadow-lg`}>
-                      {status.label}
-                    </span>
+                    <span className="font-medium text-sm">{mat}</span>
+                    <span className="text-xs text-gray-500">Meta: {perMember[mat]}</span>
                   </div>
-                </AnimatedCard>
+                  <div className="flex justify-between items-center mt-1">
+                    <span className="text-sm">{deliveredQty} / {perMember[mat]}</span>
+                    <span>{status.label === "Atingida" ? "✅" : status.label === "Parcial" ? "🟡" : "❌"}</span>
+                  </div>
+                </div>
               );
             })}
           </div>
         </div>
 
-        <button 
-          onClick={() => setViewingMemberIndex(null)} 
-          className="mt-8 px-8 py-4 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold text-lg rounded-2xl hover:from-purple-600 hover:to-pink-600 transition-all duration-300 transform hover:scale-105 shadow-2xl w-full animate-pulse"
-        >
-          ✨ Fechar Visualização
+        <button onClick={() => setViewingMemberIndex(null)} className="mt-4 px-4 py-2 bg-indigo-500 text-white font-semibold rounded-lg hover:bg-indigo-600 transition duration-300 w-full">
+          Fechar Visualização
         </button>
-      </AnimatedCard>
+      </div>
     );
   };
 
   // Conteúdo da Aba 1: Configuração e Metas
   const ConfigContent = (
-    <AnimatedCard className="p-8">
-      <h2 className="text-3xl font-bold text-white mb-4 flex items-center gap-3">
-        <span className="text-4xl">⚙️</span>
-        Configuração de Produção
-      </h2>
-      <p className="text-white/70 mb-8 text-lg">As metas são instantaneamente compartilhadas e calculadas para todos os membros.</p>
+    <div className="bg-white rounded-xl shadow-lg p-6">
+      <h2 className="text-2xl font-bold text-gray-800 mb-6">Configuração de Produção</h2>
+      <p className="text-gray-600 mb-6">As metas são instantaneamente compartilhadas e calculadas para todos os membros.</p>
       
-      <div className="space-y-6 mb-10">
+      <div className="space-y-4 mb-8">
         {Object.keys(production).map(prod => (
-          <AnimatedCard key={prod} className="p-6 hover:scale-105">
-            <div className="flex items-center gap-6">
-              <span className="font-bold text-white text-lg min-w-[140px]">{prod}</span>
-              <input
-                type="text"
-                value={production[prod]}
-                onChange={(e) => handleUpdateProduction(prod, e.target.value)}
-                className="flex-grow border-2 border-white/20 bg-white/5 text-white rounded-xl px-4 py-3 text-right text-lg font-bold focus:ring-2 focus:ring-cyan-400 focus:border-transparent transition duration-300 shadow-inner"
-                placeholder="0"
-              />
-            </div>
-          </AnimatedCard>
+          <div key={prod} className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+            <span className="font-medium text-gray-700 min-w-[120px]">{prod}</span>
+            <input
+              type="text"
+              value={production[prod]}
+              onChange={(e) => handleUpdateProduction(prod, e.target.value)}
+              className="flex-grow border border-gray-300 rounded-lg px-3 py-2 text-right focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition duration-200"
+            />
+          </div>
         ))}
       </div>
 
-      <AnimatedCard className="p-8">
-        <h3 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
-          <span className="text-3xl">🎯</span>
-          Metas por Pessoa (Total: {memberCount} Membros)
-        </h3>
+      <div className="bg-blue-50 rounded-xl p-6 border border-blue-200">
+        <h3 className="text-lg font-bold text-gray-800 mb-4">Metas por Pessoa (Total: {memberCount} Membros)</h3>
         {memberCount > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {Object.keys(perMember).map(mat => (
-              <AnimatedCard key={mat} className="p-4 text-center hover:scale-105">
-                <div className="text-white font-bold text-lg mb-2">{mat}</div>
-                <div className="text-cyan-300 font-black text-2xl">{perMember[mat]}</div>
-                <div className="text-white/60 text-sm">unidades</div>
-              </AnimatedCard>
+              <div key={mat} className="bg-white rounded-lg p-3 border border-gray-200">
+                <strong>{mat}</strong>: {perMember[mat]} unidades
+              </div>
             ))}
           </div>
         ) : (
-          <div className="text-center py-8">
-            <div className="text-4xl mb-4">👥</div>
-            <p className="text-white/80 text-lg">Adicione membros na aba 'Gerenciar Membros' para calcular as metas!</p>
+          <div className="text-amber-600 bg-amber-50 p-4 rounded-lg border border-amber-200">
+            ⚠️ Adicione membros na aba 'Gerenciar Membros' para calcular as metas!
           </div>
         )}
-      </AnimatedCard>
-    </AnimatedCard>
+      </div>
+    </div>
   );
 
   // Conteúdo da Aba 2: Controle de Entregas
   const ControlContent = (
-    <AnimatedCard className="p-8">
-      <h2 className="text-3xl font-bold text-white mb-4 flex items-center gap-3">
-        <span className="text-4xl">📦</span>
-        Registro de Entregas por Membro
-      </h2>
-      <p className="text-green-300 mb-8 text-lg font-semibold animate-pulse">
-        ⚡ As alterações são visíveis para toda a equipe em tempo real!
-      </p>
+    <div className="bg-white rounded-xl shadow-lg p-6">
+      <h2 className="text-2xl font-bold text-gray-800 mb-2">Registro de Entregas por Membro (Live)</h2>
+      <p className="text-gray-600 mb-6"><strong>As alterações nesta tabela são visíveis para toda a equipe em tempo real.</strong></p>
 
       {memberCount === 0 ? (
-        <div className="text-center py-16">
-          <div className="text-6xl mb-6">👥</div>
-          <p className="text-white/80 text-xl">Adicione membros na aba "Gerenciar Membros" para começar!</p>
+        <div className="text-center py-8 text-gray-500">
+          Por favor, adicione membros na aba "Gerenciar Membros" para começar o controle de entregas.
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-2xl border border-white/20 shadow-2xl">
+        <div className="overflow-x-auto">
           <table className="w-full border-collapse">
             <thead>
-              <tr className="bg-gradient-to-r from-blue-600 to-purple-600 text-white">
-                <th className="border border-white/20 p-4 text-left font-bold text-lg">Material</th>
-                <th className="border border-white/20 p-4 text-center font-bold text-lg">Meta / Membro</th>
+              <tr className="bg-gray-100">
+                <th className="border border-gray-300 p-3 text-left font-semibold text-gray-700">Material</th>
+                <th className="border border-gray-300 p-3 text-center font-semibold text-gray-700">Meta / Membro</th>
                 {memberNames.map((n, i) => (
-                  <th key={i} className="border border-white/20 p-4 text-center font-bold text-lg bg-purple-700">
+                  <th key={i} className="border border-gray-300 p-3 text-center font-semibold text-gray-700 bg-indigo-50">
                     {n}
                   </th>
                 ))}
@@ -621,29 +483,28 @@ function FarmDashboard() {
             </thead>
             <tbody>
               {Object.keys(perMember).map(mat => (
-                <tr key={mat} className="hover:bg-white/5 transition-colors">
-                  <td className="border border-white/10 p-4 font-bold text-white bg-white/5">{mat}</td>
-                  <td className="border border-white/10 p-4 text-center font-black text-cyan-300 bg-white/5 text-lg">
+                <tr key={mat} className="hover:bg-gray-50">
+                  <td className="border border-gray-300 p-3 font-medium text-gray-700">{mat}</td>
+                  <td className="border border-gray-300 p-3 text-center bg-blue-50 font-semibold">
                     {perMember[mat]}
                   </td>
                   {memberNames.map((_, mi) => (
-                    <td key={mi} className="border border-white/10 p-3">
+                    <td key={mi} className="border border-gray-300 p-2">
                       <input
                         type="text"
                         value={delivered[mat]?.[mi] || ''}
                         onChange={(e) => handleUpdateDelivered(mat, mi, e.target.value)}
-                        className="w-full text-right px-3 py-2 bg-white/5 border-2 border-white/10 text-white rounded-lg focus:ring-2 focus:ring-cyan-400 focus:border-transparent transition duration-200 shadow-inner font-bold"
-                        placeholder="0"
+                        className="w-full text-right px-2 py-1 bg-gray-50 border border-gray-300 rounded focus:ring-1 focus:ring-indigo-300 focus:border-indigo-300 transition duration-150"
                       />
                     </td>
                   ))}
                 </tr>
               ))}
-              <tr className="bg-gradient-to-r from-green-600 to-emerald-600 text-white font-black">
-                <td className="border border-white/20 p-4 text-lg">TOTAL ENTREGUE</td>
-                <td className="border border-white/20 p-4 text-center">-</td>
+              <tr className="bg-gray-100 font-semibold">
+                <td className="border border-gray-300 p-3">TOTAL ENTREGUE</td>
+                <td className="border border-gray-300 p-3 text-center">-</td>
                 {memberNames.map((_, mi) => (
-                  <td key={mi} className="border border-white/20 p-4 text-center bg-emerald-700 text-xl">
+                  <td key={mi} className="border border-gray-300 p-3 text-center bg-green-50">
                     {getMemberTotalDelivered(mi)}
                   </td>
                 ))}
@@ -652,102 +513,93 @@ function FarmDashboard() {
           </table>
         </div>
       )}
-    </AnimatedCard>
+    </div>
   );
 
   // Conteúdo da Aba 3: Resumo e Status
   const StatusContent = (
-    <AnimatedCard className="p-8">
-      <h2 className="text-3xl font-bold text-white mb-4 flex items-center gap-3">
-        <span className="text-4xl">📈</span>
-        Progresso Geral da Semana
-      </h2>
-      <p className="text-white/70 mb-8 text-lg">Visão consolidada do total de material entregue pela equipe.</p>
+    <div className="bg-white rounded-xl shadow-lg p-6">
+      <h2 className="text-2xl font-bold text-gray-800 mb-6">Progresso Geral da Semana</h2>
+      <p className="text-gray-600 mb-6">Visão consolidada do total de material entregue pela equipe.</p>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {Object.keys(totals).map(mat => {
           const deliveredTot = getMaterialTotalDelivered(mat);
           const pct = Math.min(100, totals[mat] > 0 ? Math.round((deliveredTot / totals[mat]) * 100) : 0);
           const status = getStatusForTotalDelivery(mat);
-          
+          const barColor = status.color.replace('bg-', 'bg-');
           return (
-            <AnimatedCard key={mat} className="p-6 hover:scale-105">
-              <div className="flex justify-between items-start mb-6">
-                <h3 className="text-xl font-bold text-white">{mat}</h3>
-                <span className={`px-4 py-2 rounded-full text-sm font-bold text-white bg-gradient-to-r ${status.color} shadow-lg`}>
+            <div key={mat} className="bg-gray-50 rounded-xl p-6 border border-gray-200">
+              <div className="flex justify-between items-start mb-4">
+                <h3 className="text-lg font-bold text-gray-800">{mat}</h3>
+                <span className={`px-3 py-1 rounded-full text-xs font-semibold text-white ${status.color}`}>
                   {status.label}
                 </span>
               </div>
               
-              <div className="mb-6">
-                <div className="flex justify-between text-white/80 mb-3">
+              <div className="mb-3">
+                <div className="flex justify-between text-sm text-gray-600 mb-1">
                   <span>Progresso</span>
-                  <span className="font-black text-xl text-white">{pct}%</span>
+                  <span>{pct}%</span>
                 </div>
-                <AnimatedProgressBar percentage={pct} height="h-4" color={status.color} />
+                <div className="w-full bg-gray-200 rounded-full h-3">
+                  <div 
+                    className={`h-3 rounded-full transition-all duration-500 ${status.color}`}
+                    style={{width: `${pct}%`}}
+                  ></div>
+                </div>
               </div>
               
-              <div className="text-center bg-white/5 rounded-xl p-4 border border-white/10">
-                <p className="text-white/80 text-sm">
-                  Total Entregue: <strong className="text-green-300 text-lg">{deliveredTot}</strong>
-                </p>
-                <p className="text-white/80 text-sm">
-                  Meta Total: <strong className="text-cyan-300 text-lg">{totals[mat]}</strong>
+              <div className="text-center">
+                <p className="text-sm text-gray-600">
+                  Total Entregue: <strong>{deliveredTot}</strong> • Meta Total: <strong>{totals[mat]}</strong>
                 </p>
               </div>
-            </AnimatedCard>
+            </div>
           );
         })}
       </div>
-    </AnimatedCard>
+    </div>
   );
 
   // Componente para Tabela de Histórico
   const MonthlyHistoryTable = ({ history }) => {
     if (history.length === 0) {
-      return (
-        <div className="text-center py-16">
-          <div className="text-6xl mb-6">📅</div>
-          <p className="text-white/80 text-xl">Nenhum mês anterior encontrado.</p>
-          <p className="text-white/60 mt-2">Feche o mês atual para iniciar o histórico!</p>
-        </div>
-      );
+      return <div className="text-gray-500 text-center py-8">Nenhum mês anterior encontrado. Feche o mês atual para iniciar o histórico.</div>;
     }
 
     return (
-      <div className="space-y-8">
+      <div className="space-y-6">
         {history.map(monthData => (
-          <AnimatedCard key={monthData.id} className="p-8">
-            <h3 className="text-2xl font-bold text-white mb-6 bg-gradient-to-r from-cyan-400 to-blue-400 text-transparent bg-clip-text">
-              {monthData.label}
-            </h3>
-            <div className="overflow-x-auto rounded-2xl border border-white/20 shadow-lg">
+          <div key={monthData.id} className="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
+            <h3 className="text-xl font-bold text-gray-800 mb-4">{monthData.label}</h3>
+            <div className="overflow-x-auto">
               <table className="w-full border-collapse">
                 <thead>
-                  <tr className="bg-gradient-to-r from-gray-700 to-gray-800 text-white">
-                    <th className="border border-white/20 p-4 text-left font-bold">#</th>
-                    <th className="border border-white/20 p-4 text-left font-bold">Membro</th>
-                    <th className="border border-white/20 p-4 text-center font-bold">Entregue</th>
-                    <th className="border border-white/20 p-4 text-center font-bold">Meta</th>
-                    <th className="border border-white/20 p-4 text-center font-bold">% Concluído</th>
-                    <th className="border border-white/20 p-4 text-center font-bold">Medalha</th>
+                  <tr className="bg-gray-100">
+                    <th className="border border-gray-300 p-3 text-left font-semibold">#</th>
+                    <th className="border border-gray-300 p-3 text-left font-semibold">Membro</th>
+                    <th className="border border-gray-300 p-3 text-center font-semibold">Entregue</th>
+                    <th className="border border-gray-300 p-3 text-center font-semibold">Meta</th>
+                    <th className="border border-gray-300 p-3 text-center font-semibold">% Concluído</th>
+                    <th className="border border-gray-300 p-3 text-center font-semibold">Medalha</th>
                   </tr>
                 </thead>
                 <tbody>
                   {monthData.members.map((member, index) => (
-                    <tr key={index} className="hover:bg-white/5 transition-colors">
-                      <td className="border border-white/10 p-4 font-bold text-white">{index + 1}</td>
-                      <td className="border border-white/10 p-4 font-semibold text-white">{member.name}</td>
-                      <td className="border border-white/10 p-4 text-center text-green-300 font-bold">{member.totalDelivered}</td>
-                      <td className="border border-white/10 p-4 text-center text-cyan-300 font-bold">{member.totalTarget}</td>
-                      <td className="border border-white/10 p-4 text-center font-black text-lg">{member.pct}%</td>
-                      <td className="border border-white/10 p-4 text-center text-3xl">{member.medal.split(' ')[0]}</td>
+                    <tr key={index} className="hover:bg-gray-50">
+                      <td className="border border-gray-300 p-3">{index + 1}</td>
+                      <td className="border border-gray-300 p-3 font-medium">{member.name}</td>
+                      <td className="border border-gray-300 p-3 text-center">{member.totalDelivered}</td>
+                      <td className="border border-gray-300 p-3 text-center">{member.totalTarget}</td>
+                      <td className="border border-gray-300 p-3 text-center">{member.pct}%</td>
+                      <td className="border border-gray-300 p-3 text-center">{member.medal.split(' ')[0]}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-          </AnimatedCard>
+          </div>
         ))}
       </div>
     );
@@ -755,45 +607,38 @@ function FarmDashboard() {
 
   // Conteúdo da Aba 4: Ranking e Histórico
   const RankingAndHistoryContent = (
-    <AnimatedCard className="p-8">
-      <h2 className="text-3xl font-bold text-white mb-4 flex items-center gap-3">
-        <span className="text-4xl">🏆</span>
-        Ranking Atual e Histórico
-      </h2>
+    <div className="bg-white rounded-xl shadow-lg p-6">
+      <h2 className="text-2xl font-bold text-gray-800 mb-6">🏆 Ranking Atual e Histórico</h2>
 
-      <div className="mb-12">
-        <h3 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
-          <span>📊</span>
-          Ranking Atual (Progresso Individual)
-        </h3>
+      <div className="mb-8">
+        <h3 className="text-xl font-semibold text-gray-700 mb-4">Ranking Atual (Progresso Individual)</h3>
         
         {currentRanking.length === 0 || memberCount === 0 || Object.values(totals).every(t => t === 0) ? (
-          <div className="text-center py-12">
-            <div className="text-6xl mb-6">🎯</div>
-            <p className="text-white/80 text-xl">Adicione membros e configure metas para visualizar o ranking!</p>
+          <div className="text-amber-600 bg-amber-50 p-4 rounded-lg border border-amber-200">
+            ⚠️ Adicione membros e configure metas para visualizar o ranking.
           </div>
         ) : (
-          <div className="overflow-x-auto rounded-2xl border border-white/20 shadow-2xl">
+          <div className="overflow-x-auto">
             <table className="w-full border-collapse">
               <thead>
-                <tr className="bg-gradient-to-r from-amber-500 to-orange-500 text-white">
-                  <th className="border border-white/20 p-4 text-left font-bold text-lg">#</th>
-                  <th className="border border-white/20 p-4 text-left font-bold text-lg">Membro</th>
-                  <th className="border border-white/20 p-4 text-center font-bold text-lg">Medalha</th>
-                  <th className="border border-white/20 p-4 text-center font-bold text-lg">Entregue</th>
-                  <th className="border border-white/20 p-4 text-center font-bold text-lg">Meta</th>
-                  <th className="border border-white/20 p-4 text-center font-bold text-lg">% Concluído</th>
+                <tr className="bg-gray-100">
+                  <th className="border border-gray-300 p-3 text-left font-semibold">#</th>
+                  <th className="border border-gray-300 p-3 text-left font-semibold">Membro</th>
+                  <th className="border border-gray-300 p-3 text-center font-semibold">Medalha</th>
+                  <th className="border border-gray-300 p-3 text-center font-semibold">Entregue</th>
+                  <th className="border border-gray-300 p-3 text-center font-semibold">Meta</th>
+                  <th className="border border-gray-300 p-3 text-center font-semibold">% Concluído</th>
                 </tr>
               </thead>
               <tbody>
                 {currentRanking.map((item, idx) => (
-                  <tr key={idx} className="hover:bg-white/5 transition-colors">
-                    <td className="border border-white/10 p-4 font-black text-white text-lg">{idx + 1}</td>
-                    <td className="border border-white/10 p-4 font-semibold text-white">{item.name}</td>
-                    <td className="border border-white/10 p-4 text-center text-3xl">{item.medal.split(' ')[0]}</td>
-                    <td className="border border-white/10 p-4 text-center font-bold text-green-300">{item.totalDelivered}</td>
-                    <td className="border border-white/10 p-4 text-center font-bold text-cyan-300">{item.totalTarget}</td>
-                    <td className="border border-white/10 p-4 text-center font-black text-white text-lg">{item.pct}%</td>
+                  <tr key={idx} className="hover:bg-gray-50">
+                    <td className="border border-gray-300 p-3">{idx + 1}</td>
+                    <td className="border border-gray-300 p-3 font-medium">{item.name}</td>
+                    <td className="border border-gray-300 p-3 text-center">{item.medal.split(' ')[0]}</td>
+                    <td className="border border-gray-300 p-3 text-center">{item.totalDelivered}</td>
+                    <td className="border border-gray-300 p-3 text-center">{item.totalTarget}</td>
+                    <td className="border border-gray-300 p-3 text-center">{item.pct}%</td>
                   </tr>
                 ))}
               </tbody>
@@ -802,48 +647,34 @@ function FarmDashboard() {
         )}
       </div>
 
-      <div className="mb-12">
-        <h3 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
-          <span>🗓️</span>
-          Ações de Controle Mensal
-        </h3>
-        <p className="text-white/70 mb-6 text-lg">Ao fechar o mês, o progresso atual é salvo no histórico e todos os campos de entrega são zerados.</p>
+      <div className="mb-8">
+        <h3 className="text-xl font-semibold text-gray-700 mb-4">Ações de Controle Mensal</h3>
+        <p className="text-gray-600 mb-4">Ao fechar o mês, o progresso atual é salvo no histórico do Firestore e todos os campos de entrega são zerados.</p>
         <button
           onClick={handleCloseMonth}
           disabled={memberCount === 0 || Object.values(totals).every(t => t === 0)}
-          className="px-8 py-4 bg-gradient-to-r from-red-500 to-pink-500 text-white font-bold text-lg rounded-2xl hover:from-red-600 hover:to-pink-600 transition-all duration-300 transform hover:scale-105 shadow-2xl disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed animate-pulse"
+          className="px-6 py-3 bg-red-500 text-white font-semibold rounded-lg hover:bg-red-600 transition duration-300 disabled:bg-red-300"
         >
           🗓️ Fechar Mês Atual e Zerar Entregas
         </button>
       </div>
 
       <div>
-        <h3 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
-          <span>📚</span>
-          Histórico de Meses Anteriores
-        </h3>
+        <h3 className="text-xl font-semibold text-gray-700 mb-4">Histórico de Meses Anteriores</h3>
         <MonthlyHistoryTable history={history} />
       </div>
-    </AnimatedCard>
+    </div>
   );
 
   // Conteúdo da Aba 5: Gerenciar Membros
   const MemberContent = (
-    <AnimatedCard className="p-8">
-      <h2 className="text-3xl font-bold text-white mb-4 flex items-center gap-3">
-        <span className="text-4xl">👥</span>
-        Gerenciar Membros da Equipe
-      </h2>
-      <p className="text-green-300 mb-8 text-lg font-semibold animate-pulse">
-        ⚡ Qualquer alteração é compartilhada instantaneamente com todos!
-      </p>
+    <div className="bg-white rounded-xl shadow-lg p-6">
+      <h2 className="text-2xl font-bold text-gray-800 mb-6">Gerenciar Membros da Equipe (Live)</h2>
+      <p className="text-gray-600 mb-6">Qualquer alteração nesta lista é instantaneamente compartilhada com todos os usuários.</p>
 
       {/* Adicionar Membro */}
-      <AnimatedCard className="p-8 mb-10">
-        <h3 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
-          <span>➕</span>
-          Adicionar Novo Membro
-        </h3>
+      <div className="bg-blue-50 rounded-xl p-6 mb-6 border border-blue-200">
+        <h3 className="text-lg font-bold text-gray-800 mb-4">Adicionar Novo Membro</h3>
         <form onSubmit={(e) => {
           e.preventDefault();
           const newName = e.target.newMemberName.value.trim();
@@ -851,68 +682,64 @@ function FarmDashboard() {
             handleAddMember(newName);
             e.target.newMemberName.value = '';
           }
-        }} className="flex gap-4">
+        }} className="flex gap-2">
           <input
             type="text"
             name="newMemberName"
-            placeholder="Digite o nome do membro..."
-            className="flex-grow border-2 border-white/20 bg-white/5 text-white rounded-xl px-6 py-4 text-lg focus:ring-2 focus:ring-cyan-400 focus:border-transparent transition duration-300 shadow-inner"
+            placeholder="Nome do membro"
+            className="flex-grow border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-400 focus:border-transparent"
           />
-          <button type="submit" className="px-8 py-4 bg-gradient-to-r from-cyan-500 to-blue-500 text-white font-bold text-lg rounded-xl hover:from-cyan-600 hover:to-blue-600 transition-all duration-300 transform hover:scale-105 shadow-2xl">
-            ➕ Adicionar
+          <button type="submit" className="px-4 py-2 bg-indigo-500 text-white font-semibold rounded-lg hover:bg-indigo-600 transition duration-200">
+            Adicionar
           </button>
         </form>
-      </AnimatedCard>
+      </div>
 
       {/* Lista de Membros */}
       <div>
-        <h3 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
-          <span>📋</span>
-          Membros Atuais ({memberCount})
-        </h3>
-        <div className="space-y-4">
+        <h3 className="text-lg font-bold text-gray-800 mb-4">Membros Atuais ({memberCount})</h3>
+        <div className="space-y-3">
           {memberNames.map((name, index) => (
-            <AnimatedCard key={index} className="p-6 hover:scale-105">
-              <div className="flex items-center gap-4">
-                <span className="font-black text-white text-lg bg-gradient-to-r from-purple-500 to-pink-500 rounded-full w-12 h-12 flex items-center justify-center shadow-lg">
-                  {index + 1}
-                </span>
-                <span className="flex-grow font-semibold text-white text-lg">{name}</span>
-                
-                <button
-                  onClick={() => setViewingMemberIndex(index)}
-                  className="px-6 py-3 bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-cyan-600 transition-all duration-300 transform hover:scale-105 shadow-lg"
-                >
-                  📊 Progresso
-                </button>
-                
-                <input
-                  type="text"
-                  defaultValue={name}
-                  onBlur={(e) => handleRenameMember(index, e.target.value.trim() || name)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.target.blur();
-                    }
-                  }}
-                  className="w-32 text-lg border-2 border-white/20 bg-white/5 text-white rounded-xl px-4 py-2 text-center focus:ring-2 focus:ring-cyan-300 shadow-inner"
-                />
-                
-                <button
-                  onClick={() => handleRemoveMember(index)}
-                  className="px-6 py-3 bg-gradient-to-r from-red-500 to-pink-500 text-white font-semibold rounded-xl hover:from-red-600 hover:to-pink-600 transition-all duration-300 transform hover:scale-105 shadow-lg"
-                >
-                  🗑️ Remover
-                </button>
-              </div>
-            </AnimatedCard>
+            <div key={index} className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg border border-gray-200">
+              <span className="font-medium text-gray-700 min-w-[30px]">{index + 1}.</span>
+              <span className="flex-grow font-medium">{name}</span>
+              
+              <button
+                onClick={() => setViewingMemberIndex(index)}
+                className="text-sm px-3 py-1 bg-indigo-500 text-white rounded hover:bg-indigo-600 transition"
+                title="Ver Progresso"
+              >
+                Ver Progresso
+              </button>
+              
+              <input
+                type="text"
+                defaultValue={name}
+                onBlur={(e) => handleRenameMember(index, e.target.value.trim() || name)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.target.blur();
+                  }
+                }}
+                className="w-24 text-sm border border-gray-300 rounded px-2 py-1 text-center focus:ring-1 focus:ring-indigo-300"
+                title="Clique para renomear"
+              />
+              
+              <button
+                onClick={() => handleRemoveMember(index)}
+                className="text-sm px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 transition"
+                title="Remover Membro"
+              >
+                Remover
+              </button>
+            </div>
           ))}
         </div>
       </div>
 
       {/* Visualizador de Progresso Individual */}
       {viewingMemberIndex !== null && <MemberProgressViewer memberIndex={viewingMemberIndex} />}
-    </AnimatedCard>
+    </div>
   );
 
   // Renderiza o Conteúdo da Aba Ativa
@@ -928,48 +755,16 @@ function FarmDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-blue-900 p-6 relative overflow-hidden">
-      {/* Efeito de partículas no background */}
-      <div className="absolute inset-0 overflow-hidden">
-        {[...Array(20)].map((_, i) => (
-          <div
-            key={i}
-            className="absolute rounded-full bg-white/5 animate-pulse"
-            style={{
-              top: `${Math.random() * 100}%`,
-              left: `${Math.random() * 100}%`,
-              width: `${Math.random() * 100 + 50}px`,
-              height: `${Math.random() * 100 + 50}px`,
-              animationDelay: `${Math.random() * 5}s`,
-              animationDuration: `${Math.random() * 10 + 10}s`
-            }}
-          />
-        ))}
-      </div>
-
-      <div className="max-w-7xl mx-auto relative z-10">
-        <div className="text-center mb-12">
-          <h1 className="text-5xl font-black text-white mb-6 drop-shadow-2xl bg-gradient-to-r from-cyan-400 via-purple-400 to-blue-400 text-transparent bg-clip-text animate-pulse">
-            🏭 LEVIATA FARM CONTROL
-          </h1>
-          <p className="text-white/70 text-xl font-semibold">Sistema colaborativo em tempo real • Dados sincronizados na nuvem</p>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
+      <div className="max-w-7xl mx-auto">
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-bold text-gray-800 mb-2">Controle de Farm (Online)</h1>
+          <p className="text-gray-600">Sistema colaborativo em tempo real</p>
         </div>
 
         <Tabs tabs={TABS} activeTab={activeTab} setActiveTab={setActiveTab} />
         {renderContent()}
-        
-        {/* Footer */}
-        <div className="text-center mt-16 pt-8 border-t border-white/20">
-          <p className="text-white/50 text-sm">Sistema desenvolvido para controle colaborativo de farm • Todos os dados em tempo real</p>
-        </div>
       </div>
-
-      <style jsx>{`
-        @keyframes shimmer {
-          0% { background-position: -200% 0; }
-          100% { background-position: 200% 0; }
-        }
-      `}</style>
     </div>
   );
 }
