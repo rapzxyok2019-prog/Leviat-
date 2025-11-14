@@ -24,13 +24,8 @@ const MEMBERS_DOC_REF = doc(db, 'farm_data', 'members');
 const DELIVERED_DOC_REF = doc(db, 'farm_data', 'delivered');
 const HISTORY_COLLECTION_REF = collection(db, 'farm_history');
 
-// --- Receitas ---
-const RECIPES = {
-  Colete: { Borracha: 10, "Plástico": 10, Alumínio: 20, Ferro: 20, Tecido: 1 },
-  Algema: { Borracha: 20, "Plástico": 20, Alumínio: 25, Cobre: 25, Ferro: 30 },
-  Capuz: { Borracha: 10, "Plástico": 10, Tecido: 1 },
-  "Flipper MK3": { Alumínio: 25, Ferro: 25, Cobre: 25, "Emb. Plástica": 25, Titânio: 1 }
-};
+// --- PRODUTOS (CORRIGIDO) ---
+const PRODUCTS = ['Colete', 'Algema', 'Capuz', 'Flipper MK3'];
 
 // --- Hooks de Sincronização e Estado ---
 const useSharedData = () => {
@@ -56,7 +51,7 @@ const useSharedData = () => {
     setupAuth();
   }, []);
 
-  // Efeito 2: Sincronização em Tempo Real
+  // Efeito 2: Sincronização em Tempo Real CORRIGIDO
   useEffect(() => {
     if (!userId) return;
 
@@ -67,7 +62,9 @@ const useSharedData = () => {
       if (docSnap.exists() && docSnap.data().production) {
         setProductionState(docSnap.data().production);
       } else if (!docSnap.exists()) {
-        setDoc(PRODUCTION_DOC_REF, { production });
+        // ESTRUTURA INICIAL CORRETA
+        const initialProduction = { Colete: '200', Algema: '100', Capuz: '50', "Flipper MK3": '20' };
+        setDoc(PRODUCTION_DOC_REF, { production: initialProduction });
       }
     });
 
@@ -76,16 +73,24 @@ const useSharedData = () => {
       if (docSnap.exists() && Array.isArray(docSnap.data().memberNames)) {
         setMemberNamesState(docSnap.data().memberNames);
       } else if (!docSnap.exists()) {
-        setDoc(MEMBERS_DOC_REF, { memberNames });
+        const initialMembers = ['Membro 1', 'Membro 2', 'Membro 3'];
+        setDoc(MEMBERS_DOC_REF, { memberNames: initialMembers });
       }
     });
 
-    // Listener Entregas
+    // Listener Entregas CORRIGIDO
     const unsubDelivered = onSnapshot(DELIVERED_DOC_REF, (docSnap) => {
       if (docSnap.exists() && typeof docSnap.data().delivered === 'object') {
         setDeliveredState(docSnap.data().delivered);
       } else if (!docSnap.exists()) {
-        setDoc(DELIVERED_DOC_REF, { delivered: {} });
+        // ESTRUTURA INICIAL CORRETA - PRODUTOS, não materiais
+        const initialDelivered = {
+          Colete: ['', '', ''],
+          Algema: ['', '', ''],
+          Capuz: ['', '', ''],
+          "Flipper MK3": ['', '', '']
+        };
+        setDoc(DELIVERED_DOC_REF, { delivered: initialDelivered });
       }
     });
 
@@ -122,31 +127,20 @@ const useSharedData = () => {
   return { production, updateProduction, memberNames, updateMemberNames, delivered, updateDelivered, history, isDbReady };
 };
 
-// --- Funções de Cálculo ---
-function sumMaterials(production) {
-  const totals = {};
-  Object.entries(production).forEach(([product, qty]) => {
-    const recipe = RECIPES[product] || {};
-    Object.entries(recipe).forEach(([mat, per]) => {
-      const numericQty = Number(qty) || 0;
-      totals[mat] = (totals[mat] || 0) + per * numericQty;
-    });
-  });
-  return totals;
-}
-
+// --- Funções de Cálculo CORRIGIDAS ---
 function ceilDivide(a, b) {
   return Math.ceil(a / b);
 }
 
+// CALCULA RANKING CORRIGIDO - usa produtos, não materiais
 function calculateRanking(memberNames, perMember, delivered) {
   if (memberNames.length === 0 || Object.keys(perMember).length === 0) return [];
   return memberNames.map((name, index) => {
     let totalTarget = 0;
     let totalDelivered = 0;
-    Object.keys(perMember).forEach(mat => {
-      const target = perMember[mat] || 0;
-      const deliveredQty = Number(delivered[mat]?.[index]) || 0;
+    Object.keys(perMember).forEach(product => {
+      const target = perMember[product] || 0;
+      const deliveredQty = Number(delivered[product]?.[index]) || 0;
       totalTarget += target;
       totalDelivered += deliveredQty;
     });
@@ -197,27 +191,29 @@ function FarmDashboard() {
   const [viewingMemberIndex, setViewingMemberIndex] = useState(null);
   const memberCount = memberNames.length;
 
-  // Cálculos Memoizados
-  const totals = useMemo(() => sumMaterials(production), [production]);
+  // Cálculos Memoizados CORRIGIDOS
+  const totals = production; // AGORA totals são os PRODUTOS diretamente
   const perMember = useMemo(() => {
     if(memberCount === 0) return {};
-    const r={};
-    Object.entries(totals).forEach(([m,t])=>r[m]=ceilDivide(t,memberCount));
+    const r = {};
+    Object.entries(totals).forEach(([product, target]) => {
+      r[product] = ceilDivide(Number(target) || 0, memberCount);
+    });
     return r;
   }, [totals, memberCount]);
   
   const currentRanking = useMemo(() => calculateRanking(memberNames, perMember, delivered), [memberNames, perMember, delivered]);
 
-  // Efeito de Ajuste da Estrutura 'delivered'
+  // Efeito de Ajuste da Estrutura 'delivered' CORRIGIDO
   useEffect(() => {
     if (!isDbReady) return;
     
     const getNextDelivered = (prev) => {
       const next = {};
-      const currentMaterials = Object.keys(totals);
-      currentMaterials.forEach(mat => {
-        const previousDeliveries = prev[mat] || [];
-        next[mat] = Array.from({length: memberCount}, (_, i) => previousDeliveries[i] ?? '');
+      const currentProducts = Object.keys(totals);
+      currentProducts.forEach(product => {
+        const previousDeliveries = prev[product] || [];
+        next[product] = Array.from({length: memberCount}, (_, i) => previousDeliveries[i] ?? '');
       });
       return next;
     };
@@ -241,49 +237,50 @@ function FarmDashboard() {
     updateProduction({...production, [product]: sanitizedValue});
   }, [production, updateProduction]);
 
-  const handleUpdateDelivered = useCallback((material, memberIndex, value) => {
-    const valueToStore = (value === '' || (value === '0') || (!isNaN(Number(value)) && Number(value) >= 0)) ? value : (delivered[material]?.[memberIndex] ?? '');
+  const handleUpdateDelivered = useCallback((product, memberIndex, value) => {
+    const valueToStore = (value === '' || (value === '0') || (!isNaN(Number(value)) && Number(value) >= 0)) ? value : (delivered[product]?.[memberIndex] ?? '');
     const next = {...delivered};
-    next[material] = next[material] ? [...next[material]] : Array(memberCount).fill('');
+    next[product] = next[product] ? [...next[product]] : Array(memberCount).fill('');
     if (memberIndex < memberCount) {
-      next[material][memberIndex] = valueToStore;
+      next[product][memberIndex] = valueToStore;
       updateDelivered(next);
     }
   }, [delivered, memberCount, updateDelivered]);
 
-  const getMaterialTotalDelivered = useCallback((mat) => {
-    return (delivered[mat] || []).reduce((a,b)=>a+(Number(b)||0),0);
+  // FUNÇÕES CORRIGIDAS - produtos, não materiais
+  const getProductTotalDelivered = useCallback((product) => {
+    return (delivered[product] || []).reduce((a,b) => a + (Number(b) || 0), 0);
   }, [delivered]);
 
-  const getStatusForMemberDelivery = useCallback((mat, memberIndex) => {
-    const memberTarget = perMember[mat] || 0;
-    const memberDelivered = Number(delivered[mat]?.[memberIndex]) || 0;
+  const getStatusForMemberDelivery = useCallback((product, memberIndex) => {
+    const memberTarget = perMember[product] || 0;
+    const memberDelivered = Number(delivered[product]?.[memberIndex]) || 0;
     if(memberTarget === 0) return {label:"N/A", color:"bg-gray-400"};
     if(memberDelivered >= memberTarget) return {label:"Atingida",color:"bg-green-600"};
     if(memberDelivered >= memberTarget * 0.5) return {label:"Parcial",color:"bg-amber-500"};
     return {label:"Pendente",color:"bg-red-600"};
   }, [perMember, delivered]);
 
-  const getStatusForTotalDelivery = useCallback((mat) => {
-    const deliveredTot = getMaterialTotalDelivered(mat);
-    const targetTotal = totals[mat] || 0;
-    if(deliveredTot>=targetTotal) return {label:"Atingida",color:"bg-green-600"};
-    if(deliveredTot>=targetTotal*0.5) return {label:"Parcial",color:"bg-amber-500"};
+  const getStatusForTotalDelivery = useCallback((product) => {
+    const deliveredTot = getProductTotalDelivered(product);
+    const targetTotal = Number(totals[product]) || 0;
+    if(deliveredTot >= targetTotal) return {label:"Atingida",color:"bg-green-600"};
+    if(deliveredTot >= targetTotal * 0.5) return {label:"Parcial",color:"bg-amber-500"};
     return {label:"Pendente",color:"bg-red-600"};
-  }, [getMaterialTotalDelivered, totals]);
+  }, [getProductTotalDelivered, totals]);
 
   const getMemberTotalDelivered = useCallback((memberIndex) => {
-    return Object.keys(delivered).reduce((sum, mat) => sum + (Number(delivered[mat]?.[memberIndex]) || 0), 0);
+    return Object.keys(delivered).reduce((sum, product) => sum + (Number(delivered[product]?.[memberIndex]) || 0), 0);
   }, [delivered]);
 
-  // Função para Fechar o Mês
+  // Função para Fechar o Mês CORRIGIDA
   async function handleCloseMonth() {
     if (memberCount === 0) {
       alert("Adicione membros primeiro.");
       return;
     }
     
-    const totalMetas = Object.values(totals).reduce((a,b) => a+b, 0);
+    const totalMetas = Object.values(totals).reduce((a,b) => a + (Number(b) || 0), 0);
     if (totalMetas === 0) {
       alert("Defina metas na aba 'Configuração' antes de fechar o mês.");
       return;
@@ -305,9 +302,10 @@ function FarmDashboard() {
     try {
       await addDoc(HISTORY_COLLECTION_REF, monthData);
       
+      // CORRIGIDO: zerar entregas dos PRODUTOS
       const nextDelivered = {};
-      Object.keys(totals).forEach(mat => {
-        nextDelivered[mat] = Array(memberCount).fill('');
+      Object.keys(totals).forEach(product => {
+        nextDelivered[product] = Array(memberCount).fill('');
       });
       await updateDelivered(nextDelivered);
       
@@ -319,7 +317,7 @@ function FarmDashboard() {
     }
   }
 
-  // Funções de Gerenciamento de Membros
+  // Funções de Gerenciamento de Membros (mantidas iguais)
   const handleAddMember = (name) => {
     updateMemberNames([...memberNames, name]);
   };
@@ -335,9 +333,9 @@ function FarmDashboard() {
     await updateMemberNames(nextMemberNames);
     
     const nextDelivered = {};
-    Object.keys(delivered).forEach(mat => {
-      nextDelivered[mat] = delivered[mat].filter((_, i) => i !== indexToRemove);
-      nextDelivered[mat] = Array.from({length: nextMemberNames.length}, (_, i) => nextDelivered[mat][i] ?? '');
+    Object.keys(delivered).forEach(product => {
+      nextDelivered[product] = delivered[product].filter((_, i) => i !== indexToRemove);
+      nextDelivered[product] = Array.from({length: nextMemberNames.length}, (_, i) => nextDelivered[product][i] ?? '');
     });
     await updateDelivered(nextDelivered);
     setViewingMemberIndex(null);
@@ -355,16 +353,16 @@ function FarmDashboard() {
     );
   }
 
-  // --- Componentes de Conteúdo ---
+  // --- Componentes de Conteúdo CORRIGIDOS ---
   
-  // Componente de Visualização de Progresso Individual
+  // Componente de Visualização de Progresso Individual CORRIGIDO
   const MemberProgressViewer = ({ memberIndex }) => {
     const memberName = memberNames[memberIndex];
     if (memberIndex === null || memberIndex >= memberNames.length) return null;
     
-    const individualProgress = Object.keys(perMember).reduce((acc, mat) => {
-      const target = perMember[mat] || 0;
-      const deliveredQty = Number(delivered[mat]?.[memberIndex]) || 0;
+    const individualProgress = Object.keys(perMember).reduce((acc, product) => {
+      const target = perMember[product] || 0;
+      const deliveredQty = Number(delivered[product]?.[memberIndex]) || 0;
       acc.target += target;
       acc.delivered += deliveredQty;
       return acc;
@@ -390,19 +388,19 @@ function FarmDashboard() {
         </div>
 
         <div>
-          <h4 className="font-semibold text-gray-700 mb-3">Status por Material:</h4>
+          <h4 className="font-semibold text-gray-700 mb-3">Status por Produto:</h4>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-            {Object.keys(perMember).map(mat => {
-              const status = getStatusForMemberDelivery(mat, memberIndex);
-              const deliveredQty = Number(delivered[mat]?.[memberIndex]) || 0;
+            {Object.keys(perMember).map(product => {
+              const status = getStatusForMemberDelivery(product, memberIndex);
+              const deliveredQty = Number(delivered[product]?.[memberIndex]) || 0;
               return (
-                <div key={mat} className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                <div key={product} className="bg-gray-50 rounded-lg p-3 border border-gray-200">
                   <div className="flex justify-between items-center">
-                    <span className="font-medium text-sm">{mat}</span>
-                    <span className="text-xs text-gray-500">Meta: {perMember[mat]}</span>
+                    <span className="font-medium text-sm">{product}</span>
+                    <span className="text-xs text-gray-500">Meta: {perMember[product]}</span>
                   </div>
                   <div className="flex justify-between items-center mt-1">
-                    <span className="text-sm">{deliveredQty} / {perMember[mat]}</span>
+                    <span className="text-sm">{deliveredQty} / {perMember[product]}</span>
                     <span>{status.label === "Atingida" ? "✅" : status.label === "Parcial" ? "🟡" : "❌"}</span>
                   </div>
                 </div>
@@ -418,7 +416,7 @@ function FarmDashboard() {
     );
   };
 
-  // Conteúdo da Aba 1: Configuração e Metas
+  // Conteúdo da Aba 1: Configuração e Metas CORRIGIDO
   const ConfigContent = (
     <div className="bg-white rounded-xl shadow-lg p-6">
       <h2 className="text-2xl font-bold text-gray-800 mb-6">Configuração de Produção</h2>
@@ -442,9 +440,9 @@ function FarmDashboard() {
         <h3 className="text-lg font-bold text-gray-800 mb-4">Metas por Pessoa (Total: {memberCount} Membros)</h3>
         {memberCount > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {Object.keys(perMember).map(mat => (
-              <div key={mat} className="bg-white rounded-lg p-3 border border-gray-200">
-                <strong>{mat}</strong>: {perMember[mat]} unidades
+            {Object.keys(perMember).map(product => (
+              <div key={product} className="bg-white rounded-lg p-3 border border-gray-200">
+                <strong>{product}</strong>: {perMember[product]} unidades
               </div>
             ))}
           </div>
@@ -457,7 +455,7 @@ function FarmDashboard() {
     </div>
   );
 
-  // Conteúdo da Aba 2: Controle de Entregas
+  // Conteúdo da Aba 2: Controle de Entregas CORRIGIDO (PRINCIPAL)
   const ControlContent = (
     <div className="bg-white rounded-xl shadow-lg p-6">
       <h2 className="text-2xl font-bold text-gray-800 mb-2">Registro de Entregas por Membro (Live)</h2>
@@ -472,7 +470,7 @@ function FarmDashboard() {
           <table className="w-full border-collapse">
             <thead>
               <tr className="bg-gray-100">
-                <th className="border border-gray-300 p-3 text-left font-semibold text-gray-700">Material</th>
+                <th className="border border-gray-300 p-3 text-left font-semibold text-gray-700">Produto</th>
                 <th className="border border-gray-300 p-3 text-center font-semibold text-gray-700">Meta / Membro</th>
                 {memberNames.map((n, i) => (
                   <th key={i} className="border border-gray-300 p-3 text-center font-semibold text-gray-700 bg-indigo-50">
@@ -482,18 +480,18 @@ function FarmDashboard() {
               </tr>
             </thead>
             <tbody>
-              {Object.keys(perMember).map(mat => (
-                <tr key={mat} className="hover:bg-gray-50">
-                  <td className="border border-gray-300 p-3 font-medium text-gray-700">{mat}</td>
+              {Object.keys(perMember).map(product => (
+                <tr key={product} className="hover:bg-gray-50">
+                  <td className="border border-gray-300 p-3 font-medium text-gray-700">{product}</td>
                   <td className="border border-gray-300 p-3 text-center bg-blue-50 font-semibold">
-                    {perMember[mat]}
+                    {perMember[product]}
                   </td>
                   {memberNames.map((_, mi) => (
                     <td key={mi} className="border border-gray-300 p-2">
                       <input
                         type="text"
-                        value={delivered[mat]?.[mi] || ''}
-                        onChange={(e) => handleUpdateDelivered(mat, mi, e.target.value)}
+                        value={delivered[product]?.[mi] || ''}
+                        onChange={(e) => handleUpdateDelivered(product, mi, e.target.value)}
                         className="w-full text-right px-2 py-1 bg-gray-50 border border-gray-300 rounded focus:ring-1 focus:ring-indigo-300 focus:border-indigo-300 transition duration-150"
                       />
                     </td>
@@ -516,22 +514,22 @@ function FarmDashboard() {
     </div>
   );
 
-  // Conteúdo da Aba 3: Resumo e Status
+  // Conteúdo da Aba 3: Resumo e Status CORRIGIDO
   const StatusContent = (
     <div className="bg-white rounded-xl shadow-lg p-6">
       <h2 className="text-2xl font-bold text-gray-800 mb-6">Progresso Geral da Semana</h2>
-      <p className="text-gray-600 mb-6">Visão consolidada do total de material entregue pela equipe.</p>
+      <p className="text-gray-600 mb-6">Visão consolidada do total de produtos entregue pela equipe.</p>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {Object.keys(totals).map(mat => {
-          const deliveredTot = getMaterialTotalDelivered(mat);
-          const pct = Math.min(100, totals[mat] > 0 ? Math.round((deliveredTot / totals[mat]) * 100) : 0);
-          const status = getStatusForTotalDelivery(mat);
-          const barColor = status.color.replace('bg-', 'bg-');
+        {Object.keys(totals).map(product => {
+          const deliveredTot = getProductTotalDelivered(product);
+          const targetTotal = Number(totals[product]) || 0;
+          const pct = targetTotal > 0 ? Math.min(100, Math.round((deliveredTot / targetTotal) * 100)) : 0;
+          const status = getStatusForTotalDelivery(product);
           return (
-            <div key={mat} className="bg-gray-50 rounded-xl p-6 border border-gray-200">
+            <div key={product} className="bg-gray-50 rounded-xl p-6 border border-gray-200">
               <div className="flex justify-between items-start mb-4">
-                <h3 className="text-lg font-bold text-gray-800">{mat}</h3>
+                <h3 className="text-lg font-bold text-gray-800">{product}</h3>
                 <span className={`px-3 py-1 rounded-full text-xs font-semibold text-white ${status.color}`}>
                   {status.label}
                 </span>
@@ -552,7 +550,7 @@ function FarmDashboard() {
               
               <div className="text-center">
                 <p className="text-sm text-gray-600">
-                  Total Entregue: <strong>{deliveredTot}</strong> • Meta Total: <strong>{totals[mat]}</strong>
+                  Total Entregue: <strong>{deliveredTot}</strong> • Meta Total: <strong>{targetTotal}</strong>
                 </p>
               </div>
             </div>
@@ -562,7 +560,7 @@ function FarmDashboard() {
     </div>
   );
 
-  // Componente para Tabela de Histórico
+  // Componente para Tabela de Histórico (mantido igual)
   const MonthlyHistoryTable = ({ history }) => {
     if (history.length === 0) {
       return <div className="text-gray-500 text-center py-8">Nenhum mês anterior encontrado. Feche o mês atual para iniciar o histórico.</div>;
@@ -605,7 +603,7 @@ function FarmDashboard() {
     );
   };
 
-  // Conteúdo da Aba 4: Ranking e Histórico
+  // Conteúdo da Aba 4: Ranking e Histórico (mantido igual)
   const RankingAndHistoryContent = (
     <div className="bg-white rounded-xl shadow-lg p-6">
       <h2 className="text-2xl font-bold text-gray-800 mb-6">🏆 Ranking Atual e Histórico</h2>
@@ -613,7 +611,7 @@ function FarmDashboard() {
       <div className="mb-8">
         <h3 className="text-xl font-semibold text-gray-700 mb-4">Ranking Atual (Progresso Individual)</h3>
         
-        {currentRanking.length === 0 || memberCount === 0 || Object.values(totals).every(t => t === 0) ? (
+        {currentRanking.length === 0 || memberCount === 0 || Object.values(totals).every(t => Number(t) === 0) ? (
           <div className="text-amber-600 bg-amber-50 p-4 rounded-lg border border-amber-200">
             ⚠️ Adicione membros e configure metas para visualizar o ranking.
           </div>
@@ -652,7 +650,7 @@ function FarmDashboard() {
         <p className="text-gray-600 mb-4">Ao fechar o mês, o progresso atual é salvo no histórico do Firestore e todos os campos de entrega são zerados.</p>
         <button
           onClick={handleCloseMonth}
-          disabled={memberCount === 0 || Object.values(totals).every(t => t === 0)}
+          disabled={memberCount === 0 || Object.values(totals).every(t => Number(t) === 0)}
           className="px-6 py-3 bg-red-500 text-white font-semibold rounded-lg hover:bg-red-600 transition duration-300 disabled:bg-red-300"
         >
           🗓️ Fechar Mês Atual e Zerar Entregas
@@ -666,7 +664,7 @@ function FarmDashboard() {
     </div>
   );
 
-  // Conteúdo da Aba 5: Gerenciar Membros
+  // Conteúdo da Aba 5: Gerenciar Membros (mantido igual)
   const MemberContent = (
     <div className="bg-white rounded-xl shadow-lg p-6">
       <h2 className="text-2xl font-bold text-gray-800 mb-6">Gerenciar Membros da Equipe (Live)</h2>
