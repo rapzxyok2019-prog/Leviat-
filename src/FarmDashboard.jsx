@@ -171,18 +171,21 @@ function Tabs({ tabs, activeTab, setActiveTab }) {
   };
   
   return (
-    <div className="flex flex-wrap gap-2 mb-6 border-b border-gray-200 pb-2">
+    <div className="flex flex-wrap gap-2 mb-6 border-b border-gray-300 pb-4">
       {tabs.map((tab, index) => (
         <button
           key={index}
           onClick={() => setActiveTab(tab)}
-          className={`px-4 py-2 rounded-lg font-medium transition duration-200 ${
+          className={`px-6 py-3 rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 ${
             activeTab === tab 
-              ? 'bg-indigo-500 text-white shadow-md' 
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg' 
+              : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200 shadow-sm hover:shadow-md'
           }`}
         >
-          {icons[tab] || ''} {tab}
+          <span className="flex items-center gap-2">
+            <span className="text-lg">{icons[tab] || ''}</span>
+            {tab}
+          </span>
         </button>
       ))}
     </div>
@@ -258,18 +261,18 @@ function FarmDashboard() {
   const getStatusForMemberDelivery = useCallback((mat, memberIndex) => {
     const memberTarget = perMember[mat] || 0;
     const memberDelivered = Number(delivered[mat]?.[memberIndex]) || 0;
-    if(memberTarget === 0) return {label:"N/A", color:"bg-gray-400"};
-    if(memberDelivered >= memberTarget) return {label:"Atingida",color:"bg-green-600"};
-    if(memberDelivered >= memberTarget * 0.5) return {label:"Parcial",color:"bg-amber-500"};
-    return {label:"Pendente",color:"bg-red-600"};
+    if(memberTarget === 0) return {label:"N/A", color:"from-gray-400 to-gray-500"};
+    if(memberDelivered >= memberTarget) return {label:"Atingida",color:"from-green-500 to-green-600"};
+    if(memberDelivered >= memberTarget * 0.5) return {label:"Parcial",color:"from-amber-400 to-amber-500"};
+    return {label:"Pendente",color:"from-red-500 to-red-600"};
   }, [perMember, delivered]);
 
   const getStatusForTotalDelivery = useCallback((mat) => {
     const deliveredTot = getMaterialTotalDelivered(mat);
     const targetTotal = totals[mat] || 0;
-    if(deliveredTot>=targetTotal) return {label:"Atingida",color:"bg-green-600"};
-    if(deliveredTot>=targetTotal*0.5) return {label:"Parcial",color:"bg-amber-500"};
-    return {label:"Pendente",color:"bg-red-600"};
+    if(deliveredTot>=targetTotal) return {label:"Atingida",color:"from-green-500 to-green-600"};
+    if(deliveredTot>=targetTotal*0.5) return {label:"Parcial",color:"from-amber-400 to-amber-500"};
+    return {label:"Pendente",color:"from-red-500 to-red-600"};
   }, [getMaterialTotalDelivered, totals]);
 
   const getMemberTotalDelivered = useCallback((memberIndex) => {
@@ -345,10 +348,10 @@ function FarmDashboard() {
 
   if (!isDbReady) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
-        <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-500 mx-auto mb-4"></div>
-          <h2 className="text-xl font-bold text-gray-800 mb-2">Conectando ao Painel Colaborativo...</h2>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-indigo-100 flex items-center justify-center">
+        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-2xl p-8 max-w-md text-center border border-white/20">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-indigo-500 mx-auto mb-4"></div>
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">Conectando ao Painel Colaborativo...</h2>
           <p className="text-gray-600">Sincronizando dados em tempo real com o Firestore.</p>
         </div>
       </div>
@@ -373,37 +376,42 @@ function FarmDashboard() {
     const pct = individualProgress.target > 0 ? Math.min(100, Math.round((individualProgress.delivered / individualProgress.target) * 100)) : 0;
 
     return (
-      <div className="bg-white rounded-xl shadow-lg p-6 mt-4 border-2 border-indigo-200">
-        <h3 className="text-lg font-bold text-gray-800 mb-4">Progresso Individual de {memberName}</h3>
+      <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl p-6 mt-6 border border-white/20">
+        <h3 className="text-xl font-bold text-gray-800 mb-4">📊 Progresso Individual de {memberName}</h3>
         
-        <div className="mb-4">
-          <div className="flex justify-between text-sm text-gray-600 mb-1">
+        <div className="mb-6">
+          <div className="flex justify-between text-sm text-gray-600 mb-2">
             <span>Progresso Geral</span>
-            <span>{pct}%</span>
+            <span className="font-semibold">{pct}%</span>
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-4">
-            <div className="bg-indigo-500 h-4 rounded-full transition-all duration-500" style={{width: `${pct}%`}}></div>
+          <div className="w-full bg-gray-200 rounded-full h-4 shadow-inner">
+            <div 
+              className="bg-gradient-to-r from-blue-500 to-purple-500 h-4 rounded-full transition-all duration-700 shadow-md" 
+              style={{width: `${pct}%`}}
+            ></div>
           </div>
-          <p className="text-sm text-gray-600 mt-2 text-center">
-            <strong>{individualProgress.delivered}</strong> entregues de <strong>{individualProgress.target}</strong> unidades
+          <p className="text-sm text-gray-600 mt-3 text-center">
+            <strong className="text-green-600">{individualProgress.delivered}</strong> entregues de <strong className="text-blue-600">{individualProgress.target}</strong> unidades
           </p>
         </div>
 
         <div>
-          <h4 className="font-semibold text-gray-700 mb-3">Status por Material:</h4>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+          <h4 className="font-semibold text-gray-700 mb-4">🎯 Status por Material:</h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {Object.keys(perMember).map(mat => {
               const status = getStatusForMemberDelivery(mat, memberIndex);
               const deliveredQty = Number(delivered[mat]?.[memberIndex]) || 0;
               return (
-                <div key={mat} className="bg-gray-50 rounded-lg p-3 border border-gray-200">
-                  <div className="flex justify-between items-center">
-                    <span className="font-medium text-sm">{mat}</span>
-                    <span className="text-xs text-gray-500">Meta: {perMember[mat]}</span>
+                <div key={mat} className="bg-gradient-to-br from-gray-50 to-white rounded-xl p-4 border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="font-semibold text-gray-800 text-sm">{mat}</span>
+                    <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">Meta: {perMember[mat]}</span>
                   </div>
-                  <div className="flex justify-between items-center mt-1">
-                    <span className="text-sm">{deliveredQty} / {perMember[mat]}</span>
-                    <span>{status.label === "Atingida" ? "✅" : status.label === "Parcial" ? "🟡" : "❌"}</span>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium">{deliveredQty} / {perMember[mat]}</span>
+                    <span className={`px-2 py-1 rounded-full text-xs font-semibold bg-gradient-to-r ${status.color} text-white`}>
+                      {status.label}
+                    </span>
                   </div>
                 </div>
               );
@@ -411,7 +419,7 @@ function FarmDashboard() {
           </div>
         </div>
 
-        <button onClick={() => setViewingMemberIndex(null)} className="mt-4 px-4 py-2 bg-indigo-500 text-white font-semibold rounded-lg hover:bg-indigo-600 transition duration-300 w-full">
+        <button onClick={() => setViewingMemberIndex(null)} className="mt-6 px-6 py-3 bg-gradient-to-r from-indigo-500 to-purple-500 text-white font-semibold rounded-xl hover:from-indigo-600 hover:to-purple-600 transition-all duration-300 transform hover:scale-105 shadow-lg w-full">
           Fechar Visualização
         </button>
       </div>
@@ -420,37 +428,37 @@ function FarmDashboard() {
 
   // Conteúdo da Aba 1: Configuração e Metas
   const ConfigContent = (
-    <div className="bg-white rounded-xl shadow-lg p-6">
-      <h2 className="text-2xl font-bold text-gray-800 mb-6">Configuração de Produção</h2>
-      <p className="text-gray-600 mb-6">As metas são instantaneamente compartilhadas e calculadas para todos os membros.</p>
+    <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl p-8 border border-white/20">
+      <h2 className="text-3xl font-bold text-gray-800 mb-2">⚙️ Configuração de Produção</h2>
+      <p className="text-gray-600 mb-8 text-lg">As metas são instantaneamente compartilhadas e calculadas para todos os membros.</p>
       
-      <div className="space-y-4 mb-8">
+      <div className="space-y-6 mb-10">
         {Object.keys(production).map(prod => (
-          <div key={prod} className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
-            <span className="font-medium text-gray-700 min-w-[120px]">{prod}</span>
+          <div key={prod} className="flex items-center gap-6 p-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl border border-blue-200 shadow-sm hover:shadow-md transition-shadow">
+            <span className="font-semibold text-gray-700 min-w-[140px] text-lg">{prod}</span>
             <input
               type="text"
               value={production[prod]}
               onChange={(e) => handleUpdateProduction(prod, e.target.value)}
-              className="flex-grow border border-gray-300 rounded-lg px-3 py-2 text-right focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition duration-200"
+              className="flex-grow border-2 border-gray-300 rounded-xl px-4 py-3 text-right text-lg font-semibold focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition duration-200 shadow-inner"
             />
           </div>
         ))}
       </div>
 
-      <div className="bg-blue-50 rounded-xl p-6 border border-blue-200">
-        <h3 className="text-lg font-bold text-gray-800 mb-4">Metas por Pessoa (Total: {memberCount} Membros)</h3>
+      <div className="bg-gradient-to-br from-blue-50 to-purple-50 rounded-2xl p-8 border border-blue-200 shadow-sm">
+        <h3 className="text-2xl font-bold text-gray-800 mb-6">🎯 Metas por Pessoa (Total: {memberCount} Membros)</h3>
         {memberCount > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {Object.keys(perMember).map(mat => (
-              <div key={mat} className="bg-white rounded-lg p-3 border border-gray-200">
-                <strong>{mat}</strong>: {perMember[mat]} unidades
+              <div key={mat} className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+                <strong className="text-gray-800">{mat}</strong>: <span className="text-blue-600 font-bold text-lg">{perMember[mat]}</span> unidades
               </div>
             ))}
           </div>
         ) : (
-          <div className="text-amber-600 bg-amber-50 p-4 rounded-lg border border-amber-200">
-            ⚠️ Adicione membros na aba 'Gerenciar Membros' para calcular as metas!
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 text-center">
+            <span className="text-amber-600 font-semibold text-lg">⚠️ Adicione membros na aba 'Gerenciar Membros' para calcular as metas!</span>
           </div>
         )}
       </div>
@@ -459,23 +467,24 @@ function FarmDashboard() {
 
   // Conteúdo da Aba 2: Controle de Entregas
   const ControlContent = (
-    <div className="bg-white rounded-xl shadow-lg p-6">
-      <h2 className="text-2xl font-bold text-gray-800 mb-2">Registro de Entregas por Membro (Live)</h2>
-      <p className="text-gray-600 mb-6"><strong>As alterações nesta tabela são visíveis para toda a equipe em tempo real.</strong></p>
+    <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl p-8 border border-white/20">
+      <h2 className="text-3xl font-bold text-gray-800 mb-2">📦 Registro de Entregas por Membro</h2>
+      <p className="text-gray-600 mb-8 text-lg"><strong className="text-green-600">As alterações nesta tabela são visíveis para toda a equipe em tempo real.</strong></p>
 
       {memberCount === 0 ? (
-        <div className="text-center py-8 text-gray-500">
-          Por favor, adicione membros na aba "Gerenciar Membros" para começar o controle de entregas.
+        <div className="text-center py-12 text-gray-500 bg-gradient-to-br from-gray-50 to-blue-50 rounded-2xl border border-gray-200">
+          <div className="text-4xl mb-4">👥</div>
+          <p className="text-xl">Por favor, adicione membros na aba "Gerenciar Membros" para começar o controle de entregas.</p>
         </div>
       ) : (
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto rounded-2xl border border-gray-200 shadow-sm">
           <table className="w-full border-collapse">
             <thead>
-              <tr className="bg-gray-100">
-                <th className="border border-gray-300 p-3 text-left font-semibold text-gray-700">Material</th>
-                <th className="border border-gray-300 p-3 text-center font-semibold text-gray-700">Meta / Membro</th>
+              <tr className="bg-gradient-to-r from-blue-500 to-purple-500 text-white">
+                <th className="border border-blue-400 p-4 text-left font-bold text-lg">Material</th>
+                <th className="border border-blue-400 p-4 text-center font-bold text-lg">Meta / Membro</th>
                 {memberNames.map((n, i) => (
-                  <th key={i} className="border border-gray-300 p-3 text-center font-semibold text-gray-700 bg-indigo-50">
+                  <th key={i} className="border border-blue-400 p-4 text-center font-bold text-lg bg-blue-600">
                     {n}
                   </th>
                 ))}
@@ -483,28 +492,28 @@ function FarmDashboard() {
             </thead>
             <tbody>
               {Object.keys(perMember).map(mat => (
-                <tr key={mat} className="hover:bg-gray-50">
-                  <td className="border border-gray-300 p-3 font-medium text-gray-700">{mat}</td>
-                  <td className="border border-gray-300 p-3 text-center bg-blue-50 font-semibold">
+                <tr key={mat} className="hover:bg-blue-50 transition-colors">
+                  <td className="border border-gray-200 p-4 font-semibold text-gray-700 bg-gray-50">{mat}</td>
+                  <td className="border border-gray-200 p-4 text-center font-bold text-blue-600 bg-blue-50">
                     {perMember[mat]}
                   </td>
                   {memberNames.map((_, mi) => (
-                    <td key={mi} className="border border-gray-300 p-2">
+                    <td key={mi} className="border border-gray-200 p-3">
                       <input
                         type="text"
                         value={delivered[mat]?.[mi] || ''}
                         onChange={(e) => handleUpdateDelivered(mat, mi, e.target.value)}
-                        className="w-full text-right px-2 py-1 bg-gray-50 border border-gray-300 rounded focus:ring-1 focus:ring-indigo-300 focus:border-indigo-300 transition duration-150"
+                        className="w-full text-right px-3 py-2 bg-white border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-300 focus:border-indigo-300 transition duration-150 shadow-inner"
                       />
                     </td>
                   ))}
                 </tr>
               ))}
-              <tr className="bg-gray-100 font-semibold">
-                <td className="border border-gray-300 p-3">TOTAL ENTREGUE</td>
-                <td className="border border-gray-300 p-3 text-center">-</td>
+              <tr className="bg-gradient-to-r from-green-500 to-emerald-500 text-white font-bold">
+                <td className="border border-green-400 p-4">TOTAL ENTREGUE</td>
+                <td className="border border-green-400 p-4 text-center">-</td>
                 {memberNames.map((_, mi) => (
-                  <td key={mi} className="border border-gray-300 p-3 text-center bg-green-50">
+                  <td key={mi} className="border border-green-400 p-4 text-center bg-green-600 text-lg">
                     {getMemberTotalDelivered(mi)}
                   </td>
                 ))}
@@ -518,41 +527,41 @@ function FarmDashboard() {
 
   // Conteúdo da Aba 3: Resumo e Status
   const StatusContent = (
-    <div className="bg-white rounded-xl shadow-lg p-6">
-      <h2 className="text-2xl font-bold text-gray-800 mb-6">Progresso Geral da Semana</h2>
-      <p className="text-gray-600 mb-6">Visão consolidada do total de material entregue pela equipe.</p>
+    <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl p-8 border border-white/20">
+      <h2 className="text-3xl font-bold text-gray-800 mb-2">📈 Progresso Geral da Semana</h2>
+      <p className="text-gray-600 mb-8 text-lg">Visão consolidada do total de material entregue pela equipe.</p>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         {Object.keys(totals).map(mat => {
           const deliveredTot = getMaterialTotalDelivered(mat);
           const pct = Math.min(100, totals[mat] > 0 ? Math.round((deliveredTot / totals[mat]) * 100) : 0);
           const status = getStatusForTotalDelivery(mat);
           
           return (
-            <div key={mat} className="bg-gray-50 rounded-xl p-6 border border-gray-200">
-              <div className="flex justify-between items-start mb-4">
-                <h3 className="text-lg font-bold text-gray-800">{mat}</h3>
-                <span className={`px-3 py-1 rounded-full text-xs font-semibold text-white ${status.color}`}>
+            <div key={mat} className="bg-gradient-to-br from-white to-gray-50 rounded-2xl p-6 border border-gray-200 shadow-lg hover:shadow-xl transition-all duration-300">
+              <div className="flex justify-between items-start mb-6">
+                <h3 className="text-xl font-bold text-gray-800">{mat}</h3>
+                <span className={`px-4 py-2 rounded-full text-sm font-semibold text-white bg-gradient-to-r ${status.color} shadow-md`}>
                   {status.label}
                 </span>
               </div>
               
-              <div className="mb-3">
-                <div className="flex justify-between text-sm text-gray-600 mb-1">
+              <div className="mb-4">
+                <div className="flex justify-between text-sm text-gray-600 mb-2">
                   <span>Progresso</span>
-                  <span>{pct}%</span>
+                  <span className="font-bold">{pct}%</span>
                 </div>
-                <div className="w-full bg-gray-200 rounded-full h-3">
+                <div className="w-full bg-gray-200 rounded-full h-4 shadow-inner">
                   <div 
-                    className={`h-3 rounded-full transition-all duration-500 ${status.color}`}
+                    className={`h-4 rounded-full bg-gradient-to-r ${status.color} transition-all duration-1000 shadow-md`}
                     style={{width: `${pct}%`}}
                   ></div>
                 </div>
               </div>
               
-              <div className="text-center">
-                <p className="text-sm text-gray-600">
-                  Total Entregue: <strong>{deliveredTot}</strong> • Meta Total: <strong>{totals[mat]}</strong>
+              <div className="text-center bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-4 border border-blue-200">
+                <p className="text-sm text-gray-700">
+                  Total Entregue: <strong className="text-green-600 text-lg">{deliveredTot}</strong> • Meta Total: <strong className="text-blue-600 text-lg">{totals[mat]}</strong>
                 </p>
               </div>
             </div>
@@ -565,35 +574,38 @@ function FarmDashboard() {
   // Componente para Tabela de Histórico
   const MonthlyHistoryTable = ({ history }) => {
     if (history.length === 0) {
-      return <div className="text-gray-500 text-center py-8">Nenhum mês anterior encontrado. Feche o mês atual para iniciar o histórico.</div>;
+      return <div className="text-gray-500 text-center py-12 bg-gradient-to-br from-gray-50 to-blue-50 rounded-2xl border border-gray-200">
+        <div className="text-4xl mb-4">📅</div>
+        <p className="text-xl">Nenhum mês anterior encontrado. Feche o mês atual para iniciar o histórico.</p>
+      </div>;
     }
 
     return (
-      <div className="space-y-6">
+      <div className="space-y-8">
         {history.map(monthData => (
-          <div key={monthData.id} className="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
-            <h3 className="text-xl font-bold text-gray-800 mb-4">{monthData.label}</h3>
-            <div className="overflow-x-auto">
+          <div key={monthData.id} className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl p-8 border border-white/20">
+            <h3 className="text-2xl font-bold text-gray-800 mb-6 bg-gradient-to-r from-blue-500 to-purple-500 text-transparent bg-clip-text">{monthData.label}</h3>
+            <div className="overflow-x-auto rounded-2xl border border-gray-200 shadow-sm">
               <table className="w-full border-collapse">
                 <thead>
-                  <tr className="bg-gray-100">
-                    <th className="border border-gray-300 p-3 text-left font-semibold">#</th>
-                    <th className="border border-gray-300 p-3 text-left font-semibold">Membro</th>
-                    <th className="border border-gray-300 p-3 text-center font-semibold">Entregue</th>
-                    <th className="border border-gray-300 p-3 text-center font-semibold">Meta</th>
-                    <th className="border border-gray-300 p-3 text-center font-semibold">% Concluído</th>
-                    <th className="border border-gray-300 p-3 text-center font-semibold">Medalha</th>
+                  <tr className="bg-gradient-to-r from-gray-600 to-gray-700 text-white">
+                    <th className="border border-gray-500 p-4 text-left font-bold">#</th>
+                    <th className="border border-gray-500 p-4 text-left font-bold">Membro</th>
+                    <th className="border border-gray-500 p-4 text-center font-bold">Entregue</th>
+                    <th className="border border-gray-500 p-4 text-center font-bold">Meta</th>
+                    <th className="border border-gray-500 p-4 text-center font-bold">% Concluído</th>
+                    <th className="border border-gray-500 p-4 text-center font-bold">Medalha</th>
                   </tr>
                 </thead>
                 <tbody>
                   {monthData.members.map((member, index) => (
-                    <tr key={index} className="hover:bg-gray-50">
-                      <td className="border border-gray-300 p-3">{index + 1}</td>
-                      <td className="border border-gray-300 p-3 font-medium">{member.name}</td>
-                      <td className="border border-gray-300 p-3 text-center">{member.totalDelivered}</td>
-                      <td className="border border-gray-300 p-3 text-center">{member.totalTarget}</td>
-                      <td className="border border-gray-300 p-3 text-center">{member.pct}%</td>
-                      <td className="border border-gray-300 p-3 text-center">{member.medal.split(' ')[0]}</td>
+                    <tr key={index} className="hover:bg-gray-50 transition-colors">
+                      <td className="border border-gray-300 p-4 font-semibold">{index + 1}</td>
+                      <td className="border border-gray-300 p-4 font-semibold text-gray-800">{member.name}</td>
+                      <td className="border border-gray-300 p-4 text-center">{member.totalDelivered}</td>
+                      <td className="border border-gray-300 p-4 text-center">{member.totalTarget}</td>
+                      <td className="border border-gray-300 p-4 text-center font-bold">{member.pct}%</td>
+                      <td className="border border-gray-300 p-4 text-center text-2xl">{member.medal.split(' ')[0]}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -607,38 +619,38 @@ function FarmDashboard() {
 
   // Conteúdo da Aba 4: Ranking e Histórico
   const RankingAndHistoryContent = (
-    <div className="bg-white rounded-xl shadow-lg p-6">
-      <h2 className="text-2xl font-bold text-gray-800 mb-6">🏆 Ranking Atual e Histórico</h2>
+    <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl p-8 border border-white/20">
+      <h2 className="text-3xl font-bold text-gray-800 mb-2">🏆 Ranking Atual e Histórico</h2>
 
-      <div className="mb-8">
-        <h3 className="text-xl font-semibold text-gray-700 mb-4">Ranking Atual (Progresso Individual)</h3>
+      <div className="mb-12">
+        <h3 className="text-2xl font-semibold text-gray-700 mb-6">📊 Ranking Atual (Progresso Individual)</h3>
         
         {currentRanking.length === 0 || memberCount === 0 || Object.values(totals).every(t => t === 0) ? (
-          <div className="text-amber-600 bg-amber-50 p-4 rounded-lg border border-amber-200">
-            ⚠️ Adicione membros e configure metas para visualizar o ranking.
+          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-8 text-center">
+            <span className="text-amber-600 font-semibold text-lg">⚠️ Adicione membros e configure metas para visualizar o ranking.</span>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto rounded-2xl border border-gray-200 shadow-lg">
             <table className="w-full border-collapse">
               <thead>
-                <tr className="bg-gray-100">
-                  <th className="border border-gray-300 p-3 text-left font-semibold">#</th>
-                  <th className="border border-gray-300 p-3 text-left font-semibold">Membro</th>
-                  <th className="border border-gray-300 p-3 text-center font-semibold">Medalha</th>
-                  <th className="border border-gray-300 p-3 text-center font-semibold">Entregue</th>
-                  <th className="border border-gray-300 p-3 text-center font-semibold">Meta</th>
-                  <th className="border border-gray-300 p-3 text-center font-semibold">% Concluído</th>
+                <tr className="bg-gradient-to-r from-amber-500 to-orange-500 text-white">
+                  <th className="border border-amber-400 p-4 text-left font-bold text-lg">#</th>
+                  <th className="border border-amber-400 p-4 text-left font-bold text-lg">Membro</th>
+                  <th className="border border-amber-400 p-4 text-center font-bold text-lg">Medalha</th>
+                  <th className="border border-amber-400 p-4 text-center font-bold text-lg">Entregue</th>
+                  <th className="border border-amber-400 p-4 text-center font-bold text-lg">Meta</th>
+                  <th className="border border-amber-400 p-4 text-center font-bold text-lg">% Concluído</th>
                 </tr>
               </thead>
               <tbody>
                 {currentRanking.map((item, idx) => (
-                  <tr key={idx} className="hover:bg-gray-50">
-                    <td className="border border-gray-300 p-3">{idx + 1}</td>
-                    <td className="border border-gray-300 p-3 font-medium">{item.name}</td>
-                    <td className="border border-gray-300 p-3 text-center">{item.medal.split(' ')[0]}</td>
-                    <td className="border border-gray-300 p-3 text-center">{item.totalDelivered}</td>
-                    <td className="border border-gray-300 p-3 text-center">{item.totalTarget}</td>
-                    <td className="border border-gray-300 p-3 text-center">{item.pct}%</td>
+                  <tr key={idx} className="hover:bg-amber-50 transition-colors">
+                    <td className="border border-amber-200 p-4 font-bold text-lg">{idx + 1}</td>
+                    <td className="border border-amber-200 p-4 font-semibold text-gray-800">{item.name}</td>
+                    <td className="border border-amber-200 p-4 text-center text-2xl">{item.medal.split(' ')[0]}</td>
+                    <td className="border border-amber-200 p-4 text-center font-semibold">{item.totalDelivered}</td>
+                    <td className="border border-amber-200 p-4 text-center font-semibold">{item.totalTarget}</td>
+                    <td className="border border-amber-200 p-4 text-center font-bold text-lg">{item.pct}%</td>
                   </tr>
                 ))}
               </tbody>
@@ -647,20 +659,20 @@ function FarmDashboard() {
         )}
       </div>
 
-      <div className="mb-8">
-        <h3 className="text-xl font-semibold text-gray-700 mb-4">Ações de Controle Mensal</h3>
-        <p className="text-gray-600 mb-4">Ao fechar o mês, o progresso atual é salva no histórico do Firestore e todos os campos de entrega são zerados.</p>
+      <div className="mb-12">
+        <h3 className="text-2xl font-semibold text-gray-700 mb-6">🗓️ Ações de Controle Mensal</h3>
+        <p className="text-gray-600 mb-6 text-lg">Ao fechar o mês, o progresso atual é salvo no histórico do Firestore e todos os campos de entrega são zerados.</p>
         <button
           onClick={handleCloseMonth}
           disabled={memberCount === 0 || Object.values(totals).every(t => t === 0)}
-          className="px-6 py-3 bg-red-500 text-white font-semibold rounded-lg hover:bg-red-600 transition duration-300 disabled:bg-red-300"
+          className="px-8 py-4 bg-gradient-to-r from-red-500 to-pink-500 text-white font-bold text-lg rounded-2xl hover:from-red-600 hover:to-pink-600 transition-all duration-300 transform hover:scale-105 shadow-lg disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed"
         >
           🗓️ Fechar Mês Atual e Zerar Entregas
         </button>
       </div>
 
       <div>
-        <h3 className="text-xl font-semibold text-gray-700 mb-4">Histórico de Meses Anteriores</h3>
+        <h3 className="text-2xl font-semibold text-gray-700 mb-6">📚 Histórico de Meses Anteriores</h3>
         <MonthlyHistoryTable history={history} />
       </div>
     </div>
@@ -668,13 +680,13 @@ function FarmDashboard() {
 
   // Conteúdo da Aba 5: Gerenciar Membros
   const MemberContent = (
-    <div className="bg-white rounded-xl shadow-lg p-6">
-      <h2 className="text-2xl font-bold text-gray-800 mb-6">Gerenciar Membros da Equipe (Live)</h2>
-      <p className="text-gray-600 mb-6">Qualquer alteração nesta lista é instantaneamente compartilhada com todos os usuários.</p>
+    <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl p-8 border border-white/20">
+      <h2 className="text-3xl font-bold text-gray-800 mb-2">👥 Gerenciar Membros da Equipe</h2>
+      <p className="text-gray-600 mb-8 text-lg"><strong className="text-green-600">Qualquer alteração nesta lista é instantaneamente compartilhada com todos os usuários.</strong></p>
 
       {/* Adicionar Membro */}
-      <div className="bg-blue-50 rounded-xl p-6 mb-6 border border-blue-200">
-        <h3 className="text-lg font-bold text-gray-800 mb-4">Adicionar Novo Membro</h3>
+      <div className="bg-gradient-to-br from-blue-50 to-purple-50 rounded-2xl p-8 mb-10 border border-blue-200 shadow-sm">
+        <h3 className="text-2xl font-bold text-gray-800 mb-6">➕ Adicionar Novo Membro</h3>
         <form onSubmit={(e) => {
           e.preventDefault();
           const newName = e.target.newMemberName.value.trim();
@@ -682,14 +694,14 @@ function FarmDashboard() {
             handleAddMember(newName);
             e.target.newMemberName.value = '';
           }
-        }} className="flex gap-2">
+        }} className="flex gap-4">
           <input
             type="text"
             name="newMemberName"
-            placeholder="Nome do membro"
-            className="flex-grow border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-400 focus:border-transparent"
+            placeholder="Digite o nome do membro..."
+            className="flex-grow border-2 border-gray-300 rounded-xl px-6 py-4 text-lg focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition duration-200 shadow-inner"
           />
-          <button type="submit" className="px-4 py-2 bg-indigo-500 text-white font-semibold rounded-lg hover:bg-indigo-600 transition duration-200">
+          <button type="submit" className="px-8 py-4 bg-gradient-to-r from-indigo-500 to-purple-500 text-white font-bold text-lg rounded-xl hover:from-indigo-600 hover:to-purple-600 transition-all duration-300 transform hover:scale-105 shadow-lg">
             Adicionar
           </button>
         </form>
@@ -697,19 +709,21 @@ function FarmDashboard() {
 
       {/* Lista de Membros */}
       <div>
-        <h3 className="text-lg font-bold text-gray-800 mb-4">Membros Atuais ({memberCount})</h3>
-        <div className="space-y-3">
+        <h3 className="text-2xl font-bold text-gray-800 mb-6">📋 Membros Atuais ({memberCount})</h3>
+        <div className="space-y-4">
           {memberNames.map((name, index) => (
-            <div key={index} className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg border border-gray-200">
-              <span className="font-medium text-gray-700 min-w-[30px]">{index + 1}.</span>
-              <span className="flex-grow font-medium">{name}</span>
+            <div key={index} className="flex items-center gap-4 p-6 bg-gradient-to-br from-white to-gray-50 rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-all duration-300">
+              <span className="font-bold text-gray-700 min-w-[40px] text-lg bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-full w-10 h-10 flex items-center justify-center">
+                {index + 1}
+              </span>
+              <span className="flex-grow font-semibold text-gray-800 text-lg">{name}</span>
               
               <button
                 onClick={() => setViewingMemberIndex(index)}
-                className="text-sm px-3 py-1 bg-indigo-500 text-white rounded hover:bg-indigo-600 transition"
+                className="px-6 py-3 bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-cyan-600 transition-all duration-300 transform hover:scale-105 shadow-md"
                 title="Ver Progresso"
               >
-                Ver Progresso
+                📊 Ver Progresso
               </button>
               
               <input
@@ -721,16 +735,16 @@ function FarmDashboard() {
                     e.target.blur();
                   }
                 }}
-                className="w-24 text-sm border border-gray-300 rounded px-2 py-1 text-center focus:ring-1 focus:ring-indigo-300"
+                className="w-32 text-lg border-2 border-gray-300 rounded-xl px-4 py-2 text-center focus:ring-2 focus:ring-indigo-300 shadow-inner"
                 title="Clique para renomear"
               />
               
               <button
                 onClick={() => handleRemoveMember(index)}
-                className="text-sm px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 transition"
+                className="px-6 py-3 bg-gradient-to-r from-red-500 to-pink-500 text-white font-semibold rounded-xl hover:from-red-600 hover:to-pink-600 transition-all duration-300 transform hover:scale-105 shadow-md"
                 title="Remover Membro"
               >
-                Remover
+                🗑️ Remover
               </button>
             </div>
           ))}
@@ -755,15 +769,20 @@ function FarmDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
+    <div className="min-h-screen bg-gradient-to-br from-blue-400 via-purple-500 to-indigo-600 p-6">
       <div className="max-w-7xl mx-auto">
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-800 mb-2">Controle de Farm (Online)</h1>
-          <p className="text-gray-600">Sistema colaborativo em tempo real</p>
+        <div className="text-center mb-12">
+          <h1 className="text-5xl font-bold text-white mb-4 drop-shadow-lg">🏭 Controle de Farm Leviata</h1>
+          <p className="text-blue-100 text-xl font-semibold">Sistema colaborativo em tempo real</p>
         </div>
 
         <Tabs tabs={TABS} activeTab={activeTab} setActiveTab={setActiveTab} />
         {renderContent()}
+        
+        {/* Footer */}
+        <div className="text-center mt-12 pt-8 border-t border-white/20">
+          <p className="text-white/70 text-sm">Sistema sincronizado em tempo real • Dados salvos na nuvem</p>
+        </div>
       </div>
     </div>
   );
