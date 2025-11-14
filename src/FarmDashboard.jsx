@@ -122,7 +122,7 @@ const useSharedData = () => {
   return { production, updateProduction, memberNames, updateMemberNames, delivered, updateDelivered, history, isDbReady };
 };
 
-// --- Funções de Cálculo (mantidas iguais) ---
+// --- Funções de Cálculo ---
 function sumMaterials(production) {
   const totals = {};
   Object.entries(production).forEach(([product, qty]) => {
@@ -160,7 +160,7 @@ function calculateRanking(memberNames, perMember, delivered) {
   }).sort((a, b) => b.pct - a.pct);
 }
 
-// --- Componente de Tabs (mantido igual) ---
+// --- Componente de Tabs ---
 function Tabs({ tabs, activeTab, setActiveTab }) {
   const icons = {
     'Configuração e Metas': '⚙️',
@@ -649,7 +649,7 @@ function FarmDashboard() {
 
       <div className="mb-8">
         <h3 className="text-xl font-semibold text-gray-700 mb-4">Ações de Controle Mensal</h3>
-        <p className="text-gray-600 mb-4">Ao fechar o mês, o progresso atual é salvo no histórico do Firestore e todos os campos de entrega são zerados.</p>
+        <p className="text-gray-600 mb-4">Ao fechar o mês, o progresso atual é salva no histórico do Firestore e todos os campos de entrega são zerados.</p>
         <button
           onClick={handleCloseMonth}
           disabled={memberCount === 0 || Object.values(totals).every(t => t === 0)}
@@ -769,7 +769,4 @@ function FarmDashboard() {
   );
 }
 
-// Renderiza o app
-const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(<FarmDashboard />);
 export default FarmDashboard;
