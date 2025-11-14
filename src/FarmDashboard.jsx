@@ -772,3 +772,4 @@ function FarmDashboard() {
 // Renderiza o app
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(<FarmDashboard />);
+export default FarmDashboard;
