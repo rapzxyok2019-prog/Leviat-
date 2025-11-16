@@ -541,555 +541,503 @@ function FarmDashboard() {
       const deliveredQty = Number(delivered[material]?.[memberIndex]) || 0;
       acc.target += target;
       acc.delivered += deliveredQty;
+  
       return acc;
     }, { target: 0, delivered: 0 });
-    
-    const pct = individualProgress.target > 0 ? Math.min(100, Math.round((individualProgress.delivered / individualProgress.target) * 100)) : 0;
-
+  
+    const percentage = individualProgress.target > 0 
+      ? Math.min(100, Math.round((individualProgress.delivered / individualProgress.target) * 100))
+      : 0;
+  
     return (
-      <div className="bg-white/80 backdrop-blur-lg rounded-3xl shadow-2xl p-8 mt-6 border border-white/20">
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-2xl font-bold text-gray-800">📊 Progresso de {memberName}</h3>
-          <button 
-            onClick={() => setViewingMemberIndex(null)}
-            className="px-4 py-2 bg-gradient-to-r from-gray-500 to-gray-600 text-white rounded-xl hover:from-gray-600 hover:to-gray-700 transition-all duration-300"
-          >
-            ✕ Fechar
-          </button>
-        </div>
-        
-        <div className="mb-6">
-          <div className="flex justify-between text-sm text-gray-600 mb-3">
-            <span className="font-semibold">Progresso Geral</span>
-            <span className="font-bold text-lg">{pct}%</span>
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="bg-gradient-to-r from-blue-500 to-purple-600 p-6 rounded-t-2xl text-white">
+            <div className="flex justify-between items-center">
+              <h2 className="text-2xl font-bold">📊 Progresso de {memberName}</h2>
+              <button 
+                onClick={() => setViewingMemberIndex(null)}
+                className="text-white hover:text-gray-200 text-2xl"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="text-center">
+                <div className="text-3xl font-bold">{percentage}%</div>
+                <div className="text-sm opacity-90">Progresso Total</div>
+              </div>
+              <div className="text-center">
+                <div className="text-3xl font-bold">{individualProgress.delivered}</div>
+                <div className="text-sm opacity-90">Entregue</div>
+              </div>
+              <div className="text-center">
+                <div className="text-3xl font-bold">{individualProgress.target}</div>
+                <div className="text-sm opacity-90">Meta Total</div>
+              </div>
+              <div className="text-center">
+                <div className="text-3xl font-bold">{Math.max(0, individualProgress.target - individualProgress.delivered)}</div>
+                <div className="text-sm opacity-90">Faltante</div>
+              </div>
+            </div>
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-6 shadow-inner">
-            <div 
-              className="bg-gradient-to-r from-green-400 to-blue-500 h-6 rounded-full transition-all duration-1000 ease-out shadow-lg"
-              style={{width: `${pct}%`}}
-            ></div>
-          </div>
-          <p className="text-center text-gray-600 mt-3">
-            <strong className="text-green-600 text-lg">{individualProgress.delivered}</strong> entregues de{' '}
-            <strong className="text-blue-600 text-lg">{individualProgress.target}</strong> unidades
-          </p>
-        </div>
-
-        <div>
-          <h4 className="font-semibold text-gray-700 mb-4 text-lg">📦 Status por Material:</h4>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {MATERIALS.map(material => {
-              const status = getStatusForMemberDelivery(material, memberIndex);
-              const deliveredQty = Number(delivered[material]?.[memberIndex]) || 0;
-              const goal = Number(weeklyGoals[material]) || 0;
-              const progressPct = goal > 0 ? Math.min(100, (deliveredQty / goal) * 100) : 0;
-              
-              return (
-                <div key={material} className="bg-gradient-to-br from-white to-gray-50 rounded-2xl p-4 border border-gray-200 shadow-sm hover:shadow-md transition-all duration-300">
-                  <div className="flex justify-between items-start mb-3">
-                    <div className="flex items-center gap-2">
-                      <span className="text-2xl">{MATERIAL_ICONS[material]}</span>
-                      <span className="font-semibold text-gray-800">{material}</span>
+          
+          <div className="p-6">
+            <h3 className="text-xl font-semibold mb-4">📦 Detalhes por Material</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {MATERIALS.map(material => {
+                const target = Number(weeklyGoals[material]) || 0;
+                const deliveredQty = Number(delivered[material]?.[memberIndex]) || 0;
+                const materialPercentage = target > 0 ? Math.min(100, Math.round((deliveredQty / target) * 100)) : 0;
+                const status = getStatusForMemberDelivery(material, memberIndex);
+                
+                return (
+                  <div key={material} className="border rounded-xl p-4 bg-gray-50">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="font-semibold">{MATERIAL_ICONS[material]} {material}</span>
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${status.bgColor} text-white`}>
+                        {status.label}
+                      </span>
                     </div>
-                    <span className={`px-3 py-1 rounded-full text-xs font-semibold text-white bg-gradient-to-r ${status.color}`}>
-                      {status.label}
-                    </span>
-                  </div>
-                  
-                  <div className="mb-2">
-                    <div className="flex justify-between text-xs text-gray-500 mb-1">
-                      <span>Progresso</span>
-                      <span>{Math.round(progressPct)}%</span>
+                    <div className="text-sm text-gray-600 mb-2">
+                      {deliveredQty} / {target} ({materialPercentage}%)
                     </div>
                     <div className="w-full bg-gray-200 rounded-full h-2">
                       <div 
-                        className={`h-2 rounded-full transition-all duration-500 ${status.bgColor}`}
-                        style={{width: `${progressPct}%`}}
+                        className={`h-2 rounded-full bg-gradient-to-r ${status.color}`}
+                        style={{ width: `${materialPercentage}%` }}
                       ></div>
                     </div>
                   </div>
-                  
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-gray-600">{deliveredQty} / {goal}</span>
-                    <span className="text-lg">
-                      {status.label === "Atingida" ? "✅" : status.label === "Parcial" ? "🟡" : "❌"}
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         </div>
       </div>
     );
   };
 
-  // Conteúdo da Aba 1: Calculadora de Produção
-  const CalculatorContent = (
-    <div className="bg-white/80 backdrop-blur-lg rounded-3xl shadow-2xl p-8 border border-white/20">
-      <div className="flex items-center gap-3 mb-8">
-        <div className="p-3 bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl">
-          <span className="text-2xl">🧮</span>
+  // Renderização do conteúdo principal
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-400 via-purple-500 to-indigo-600 p-4">
+      <div className="max-w-7xl mx-auto">
+        {/* Cabeçalho */}
+        <div className="text-center mb-8">
+          <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">
+            🏭 Painel de Farm - Leviata
+          </h1>
+          <p className="text-white/80 text-lg">
+            Controle colaborativo de produção e entregas
+          </p>
         </div>
-        <div>
-          <h2 className="text-3xl font-bold text-gray-800">Calculadora de Produção</h2>
-          <p className="text-gray-600">Calcule os materiais necessários para sua produção semanal</p>
-        </div>
-      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div className="bg-gradient-to-br from-blue-50 to-indigo-100 rounded-2xl p-6 border border-blue-200">
-          <h3 className="text-xl font-bold text-gray-800 mb-6">🎯 Meta de Produção Semanal</h3>
-          <div className="space-y-4">
-            {Object.keys(production).map(product => (
-              <div key={product} className="bg-white rounded-xl p-4 border border-blue-200 shadow-sm">
-                <div className="flex items-center justify-between">
-                  <span className="font-semibold text-gray-700">{product}</span>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      value={production[product]}
-                      onChange={(e) => handleUpdateProduction(product, e.target.value)}
-                      className="w-24 border-2 border-blue-200 rounded-lg px-3 py-2 text-right font-bold focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
-                    />
-                    <div className="absolute inset-y-0 left-0 flex items-center pl-3">
-                      <span className="text-gray-400 text-sm">Qtd:</span>
+        {/* Tabs */}
+        <Tabs tabs={TABS} activeTab={activeTab} setActiveTab={setActiveTab} />
+
+        {/* Conteúdo das Tabs */}
+        <div className="bg-white/10 backdrop-blur-lg rounded-3xl shadow-2xl p-6 border border-white/20">
+          
+          {/* Tab: Calculadora de Produção */}
+          {activeTab === 'Calculadora de Produção' && (
+            <div>
+              <h2 className="text-2xl font-bold text-white mb-6">🧮 Calculadora de Produção</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Produção */}
+                <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-6 border border-white/30">
+                  <h3 className="text-xl font-semibold text-white mb-4">🎯 Produção Desejada</h3>
+                  {Object.entries(production).map(([product, qty]) => (
+                    <div key={product} className="flex items-center justify-between mb-3">
+                      <label className="text-white font-medium">{product}</label>
+                      <input
+                        type="text"
+                        value={qty}
+                        onChange={(e) => handleUpdateProduction(product, e.target.value)}
+                        className="w-20 px-3 py-2 rounded-lg bg-white/20 border border-white/30 text-white text-center"
+                      />
                     </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="bg-gradient-to-br from-green-50 to-emerald-100 rounded-2xl p-6 border border-green-200">
-          <h3 className="text-xl font-bold text-gray-800 mb-6">📦 Materiais Necessários</h3>
-          <div className="space-y-3 max-h-80 overflow-y-auto">
-            {MATERIALS.map(material => {
-              const needed = totals[material] || 0;
-              return (
-                <div key={material} className="bg-white rounded-lg p-3 border border-green-200">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xl">{MATERIAL_ICONS[material]}</span>
-                      <span className="font-semibold">{material}</span>
-                    </div>
-                    <span className="bg-green-500 text-white px-3 py-1 rounded-lg font-bold">
-                      {needed}
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
-  // Conteúdo da Aba 2: Metas Manuais
-  const ManualGoalsContent = (
-    <div className="bg-white/80 backdrop-blur-lg rounded-3xl shadow-2xl p-8 border border-white/20">
-      <div className="flex items-center gap-3 mb-8">
-        <div className="p-3 bg-gradient-to-r from-orange-500 to-red-600 rounded-2xl">
-          <span className="text-2xl">🎯</span>
-        </div>
-        <div>
-          <h2 className="text-3xl font-bold text-gray-800">Metas Manuais de Farm</h2>
-          <p className="text-gray-600">Defina as quantidades de cada material para farm semanal</p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {MATERIALS.map(material => (
-          <div key={material} className="bg-gradient-to-br from-white to-gray-50 rounded-2xl p-6 border border-gray-200 shadow-lg hover:shadow-xl transition-all duration-300">
-            <div className="flex items-center gap-3 mb-4">
-              <span className="text-3xl">{MATERIAL_ICONS[material]}</span>
-              <div>
-                <h3 className="font-bold text-gray-800 text-lg">{material}</h3>
-                <p className="text-sm text-gray-600">Meta semanal</p>
-              </div>
-            </div>
-            
-            <div className="relative mb-4">
-              <input
-                type="text"
-                value={weeklyGoals[material] || '0'}
-                onChange={(e) => handleUpdateWeeklyGoal(material, e.target.value)}
-                className="w-full border-2 border-blue-200 rounded-xl px-4 py-3 text-center font-bold text-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200"
-                placeholder="0"
-              />
-              <div className="absolute inset-y-0 right-0 flex items-center pr-3">
-                <span className="text-gray-400">unid.</span>
-              </div>
-            </div>
-            
-            <div className="text-center">
-              <div className="text-sm text-gray-600">Entregue esta semana:</div>
-              <div className="text-xl font-bold text-green-600">
-                {getMaterialTotalDelivered(material)}
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <div className="mt-8 text-center">
-        <button
-          onClick={handleCloseMonth}
-          className="px-8 py-4 bg-gradient-to-r from-purple-500 to-pink-600 text-white font-bold rounded-2xl hover:from-purple-600 hover:to-pink-700 transition-all duration-300 transform hover:scale-105 shadow-lg"
-        >
-          🗓️ Fechar Semana e Zerar Entregas
-        </button>
-      </div>
-    </div>
-  );
-
-  // Conteúdo da Aba 3: Controle de Entregas
-  const ControlContent = (
-    <div className="bg-white/80 backdrop-blur-lg rounded-3xl shadow-2xl p-8 border border-white/20">
-      <div className="flex items-center gap-3 mb-8">
-        <div className="p-3 bg-gradient-to-r from-green-500 to-emerald-600 rounded-2xl">
-          <span className="text-2xl">📦</span>
-        </div>
-        <div>
-          <h2 className="text-3xl font-bold text-gray-800">Controle de Entregas</h2>
-          <p className="text-gray-600">Registro em tempo real das entregas de materiais por membro</p>
-        </div>
-      </div>
-
-      <div className="mb-6">
-        <div className="relative">
-          <input
-            type="text"
-            placeholder="🔍 Pesquisar material..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full bg-white/80 border-2 border-gray-300 rounded-2xl px-6 py-4 text-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200 backdrop-blur-sm"
-          />
-          {searchTerm && (
-            <button
-              onClick={() => setSearchTerm('')}
-              className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-            >
-              ✕
-            </button>
-          )}
-        </div>
-      </div>
-
-      {memberCount === 0 ? (
-        <div className="text-center py-12">
-          <div className="text-6xl mb-4">👥</div>
-          <h3 className="text-2xl font-bold text-gray-700 mb-2">Nenhum Membro Adicionado</h3>
-          <p className="text-gray-600 mb-6">Adicione membros para começar o controle de entregas</p>
-          <button
-            onClick={() => setActiveTab('Gerenciar Membros')}
-            className="px-8 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-2xl font-semibold hover:from-blue-600 hover:to-purple-700 transition-all duration-300 transform hover:scale-105"
-          >
-            👥 Gerenciar Membros
-          </button>
-        </div>
-      ) : (
-        <div className="bg-white/60 rounded-2xl border border-gray-200 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="bg-gradient-to-r from-gray-100 to-gray-200">
-                  <th className="p-4 text-left font-bold text-gray-700 text-lg border-b-2 border-gray-300">
-                    Material
-                  </th>
-                  <th className="p-4 text-center font-bold text-gray-700 text-lg border-b-2 border-gray-300">
-                    Meta Semanal
-                  </th>
-                  {memberNames.map((n, i) => (
-                    <th key={i} className="p-4 text-center font-bold text-gray-700 text-lg border-b-2 border-gray-300 bg-gradient-to-b from-indigo-100 to-indigo-200">
-                      <div className="flex flex-col items-center">
-                        <span>{n}</span>
-                        <button
-                          onClick={() => setViewingMemberIndex(i)}
-                          className="text-xs text-indigo-600 hover:text-indigo-800 mt-1 font-normal"
-                        >
-                          👁️ Ver
-                        </button>
-                      </div>
-                    </th>
                   ))}
-                  <th className="p-4 text-center font-bold text-gray-700 text-lg border-b-2 border-gray-300 bg-gradient-to-b from-green-100 to-green-200">
-                    Total
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredMaterials.map(material => {
-                  const totalDelivered = getMaterialTotalDelivered(material);
-                  const goal = Number(weeklyGoals[material]) || 0;
-                  const progress = goal > 0 ? Math.min(100, (totalDelivered / goal) * 100) : 0;
+                </div>
+
+                {/* Totais */}
+                <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-6 border border-white/30">
+                  <h3 className="text-xl font-semibold text-white mb-4">📊 Totais de Materiais</h3>
+                  <div className="space-y-3">
+                    {Object.entries(totals).map(([material, total]) => (
+                      <div key={material} className="flex justify-between items-center">
+                        <span className="text-white">
+                          {MATERIAL_ICONS[material]} {material}
+                        </span>
+                        <span className="text-white font-bold">{total}</span>
+                      </div>
+                    ))}
+                  </div>
                   
-                  return (
-                    <tr key={material} className="hover:bg-gray-50/80 transition-colors duration-200 border-b border-gray-200">
-                      <td className="p-4 font-semibold text-gray-800">
-                        <div className="flex items-center gap-3">
-                          <span className="text-2xl">{MATERIAL_ICONS[material]}</span>
-                          {material}
+                  <div className="mt-6 pt-4 border-t border-white/20">
+                    <h4 className="text-lg font-semibold text-white mb-3">👥 Por Membro ({memberCount} membros)</h4>
+                    <div className="space-y-2">
+                      {Object.entries(perMember).map(([material, per]) => (
+                        <div key={material} className="flex justify-between items-center">
+                          <span className="text-white text-sm">
+                            {MATERIAL_ICONS[material]} {material}
+                          </span>
+                          <span className="text-white font-bold">{per}</span>
                         </div>
-                      </td>
-                      <td className="p-4 text-center bg-gradient-to-b from-blue-50 to-blue-100 font-bold text-blue-700 text-lg">
-                        {goal}
-                      </td>
-                      {memberNames.map((_, mi) => {
-                        const status = getStatusForMemberDelivery(material, mi);
-                        return (
-                          <td key={mi} className="p-3">
-                            <div className="relative">
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Tab: Metas Manuais */}
+          {activeTab === 'Metas Manuais' && (
+            <div>
+              <h2 className="text-2xl font-bold text-white mb-6">🎯 Metas Manuais da Semana</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {MATERIALS.map(material => (
+                  <div key={material} className="bg-white/20 backdrop-blur-sm rounded-2xl p-4 border border-white/30">
+                    <div className="flex items-center justify-between">
+                      <label className="text-white font-medium">
+                        {MATERIAL_ICONS[material]} {material}
+                      </label>
+                      <input
+                        type="text"
+                        value={weeklyGoals[material] || ''}
+                        onChange={(e) => handleUpdateWeeklyGoal(material, e.target.value)}
+                        className="w-24 px-3 py-2 rounded-lg bg-white/20 border border-white/30 text-white text-center"
+                        placeholder="0"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Tab: Controle de Entregas */}
+          {activeTab === 'Controle de Entregas' && (
+            <div>
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold text-white">📦 Controle de Entregas</h2>
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleCloseMonth}
+                    className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg font-semibold transition-colors"
+                  >
+                    ✅ Fechar Semana
+                  </button>
+                </div>
+              </div>
+
+              {/* Busca */}
+              <div className="mb-6">
+                <input
+                  type="text"
+                  placeholder="🔍 Buscar material..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full px-4 py-3 rounded-2xl bg-white/20 border border-white/30 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/50"
+                />
+              </div>
+
+              {/* Tabela de Entregas */}
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-white/20">
+                      <th className="text-left py-3 px-4 text-white font-semibold">Material</th>
+                      {memberNames.map((name, index) => (
+                        <th key={index} className="text-center py-3 px-2 text-white font-semibold min-w-[120px]">
+                          <div 
+                            className="cursor-pointer hover:bg-white/10 p-2 rounded-lg transition-colors"
+                            onClick={() => setViewingMemberIndex(index)}
+                          >
+                            {name}
+                          </div>
+                        </th>
+                      ))}
+                      <th className="text-center py-3 px-4 text-white font-semibold">Total</th>
+                      <th className="text-center py-3 px-4 text-white font-semibold">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredMaterials.map(material => {
+                      const totalDelivered = getMaterialTotalDelivered(material);
+                      const status = getStatusForTotalDelivery(material);
+                      
+                      return (
+                        <tr key={material} className="border-b border-white/10 hover:bg-white/5">
+                          <td className="py-3 px-4 text-white font-medium">
+                            {MATERIAL_ICONS[material]} {material}
+                          </td>
+                          
+                          {memberNames.map((_, memberIndex) => (
+                            <td key={memberIndex} className="py-2 px-1 text-center">
                               <input
                                 type="text"
-                                value={delivered[material]?.[mi] || ''}
-                                onChange={(e) => handleUpdateDelivered(material, mi, e.target.value)}
-                                className={`w-full text-right px-4 py-3 border-2 rounded-xl font-semibold transition-all duration-200 focus:ring-2 focus:ring-opacity-50 ${
-                                  status.label === "Atingida" 
-                                    ? "border-green-300 bg-green-50 focus:border-green-500 focus:ring-green-200" 
-                                    : status.label === "Parcial"
-                                    ? "border-amber-300 bg-amber-50 focus:border-amber-500 focus:ring-amber-200"
-                                    : "border-gray-300 bg-white focus:border-blue-500 focus:ring-blue-200"
-                                }`}
+                                value={delivered[material]?.[memberIndex] || ''}
+                                onChange={(e) => handleUpdateDelivered(material, memberIndex, e.target.value)}
+                                className="w-20 px-2 py-1 rounded-lg bg-white/20 border border-white/30 text-white text-center focus:outline-none focus:ring-1 focus:ring-white/50"
+                                placeholder="0"
                               />
-                              {delivered[material]?.[mi] && (
-                                <div className={`absolute -top-2 -right-2 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white ${status.bgColor}`}>
-                                  {status.label === "Atingida" ? "✓" : status.label === "Parcial" ? "~" : "!"}
+                            </td>
+                          ))}
+                          
+                          <td className="py-3 px-4 text-center text-white font-bold">
+                            {totalDelivered}
+                          </td>
+                          
+                          <td className="py-3 px-4 text-center">
+                            <span className={`px-3 py-1 rounded-full text-sm font-medium ${status.bgColor} text-white`}>
+                              {status.label}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Tab: Resumo e Status */}
+          {activeTab === 'Resumo e Status' && (
+            <div>
+              <h2 className="text-2xl font-bold text-white mb-6">📈 Resumo e Status da Semana</h2>
+              
+              {/* Cards de Resumo Geral */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-6 border border-white/30 text-center">
+                  <div className="text-3xl font-bold text-white mb-2">
+                    {Object.values(weeklyGoals).reduce((sum, goal) => sum + (Number(goal) || 0), 0)}
+                  </div>
+                  <div className="text-white/80">Meta Total da Semana</div>
+                </div>
+                
+                <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-6 border border-white/30 text-center">
+                  <div className="text-3xl font-bold text-white mb-2">
+                    {Object.keys(delivered).reduce((sum, material) => sum + getMaterialTotalDelivered(material), 0)}
+                  </div>
+                  <div className="text-white/80">Total Entregue</div>
+                </div>
+                
+                <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-6 border border-white/30 text-center">
+                  <div className="text-3xl font-bold text-white mb-2">
+                    {Math.round((Object.keys(delivered).reduce((sum, material) => sum + getMaterialTotalDelivered(material), 0) / 
+                      Object.values(weeklyGoals).reduce((sum, goal) => sum + (Number(goal) || 0), 1)) * 100)}%
+                  </div>
+                  <div className="text-white/80">Progresso Geral</div>
+                </div>
+              </div>
+
+              {/* Status por Material */}
+              <h3 className="text-xl font-semibold text-white mb-4">📊 Status por Material</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {MATERIALS.map(material => {
+                  const totalDelivered = getMaterialTotalDelivered(material);
+                  const goal = Number(weeklyGoals[material]) || 0;
+                  const percentage = goal > 0 ? Math.min(100, Math.round((totalDelivered / goal) * 100)) : 0;
+                  const status = getStatusForTotalDelivery(material);
+                  
+                  return (
+                    <div key={material} className="bg-white/20 backdrop-blur-sm rounded-2xl p-4 border border-white/30">
+                      <div className="flex justify-between items-center mb-3">
+                        <span className="text-white font-medium">
+                          {MATERIAL_ICONS[material]} {material}
+                        </span>
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${status.bgColor} text-white`}>
+                          {status.label}
+                        </span>
+                      </div>
+                      
+                      <div className="text-center mb-3">
+                        <div className="text-2xl font-bold text-white">{totalDelivered} / {goal}</div>
+                        <div className="text-white/80 text-sm">{percentage}% concluído</div>
+                      </div>
+                      
+                      <div className="w-full bg-gray-400/30 rounded-full h-2">
+                        <div 
+                          className={`h-2 rounded-full bg-gradient-to-r ${status.color}`}
+                          style={{ width: `${percentage}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Progresso dos Membros */}
+              <h3 className="text-xl font-semibold text-white mt-8 mb-4">👥 Progresso Individual</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {memberNames.map((member, index) => {
+                  const summary = calculateWeeklySummary(index, weeklyGoals, delivered);
+                  
+                  return (
+                    <div 
+                      key={index}
+                      className="bg-white/20 backdrop-blur-sm rounded-2xl p-4 border border-white/30 cursor-pointer hover:bg-white/30 transition-colors"
+                      onClick={() => setViewingMemberIndex(index)}
+                    >
+                      <div className="flex justify-between items-center mb-3">
+                        <span className="text-white font-medium">{member}</span>
+                        <span className="text-white/80 text-sm">
+                          {summary.materialsCompleted}/{summary.materialsWithGoals} materiais
+                        </span>
+                      </div>
+                      
+                      <div className="text-center mb-3">
+                        <div className="text-2xl font-bold text-white">{summary.overallProgress}%</div>
+                        <div className="text-white/80 text-sm">Progresso geral</div>
+                      </div>
+                      
+                      <div className="w-full bg-gray-400/30 rounded-full h-2">
+                        <div 
+                          className="h-2 rounded-full bg-gradient-to-r from-blue-400 to-purple-500"
+                          style={{ width: `${summary.overallProgress}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Tab: Histórico Mensal */}
+          {activeTab === 'Histórico Mensal' && (
+            <div>
+              <h2 className="text-2xl font-bold text-white mb-6">📊 Histórico Mensal</h2>
+              
+              {Object.keys(historyByMonth).length === 0 ? (
+                <div className="text-center py-12">
+                  <div className="text-6xl mb-4">📭</div>
+                  <h3 className="text-xl font-semibold text-white mb-2">Nenhum histórico encontrado</h3>
+                  <p className="text-white/60">Feche algumas semanas para ver o histórico aqui</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {Object.entries(historyByMonth).map(([monthKey, weeks]) => (
+                    <div key={monthKey} className="bg-white/20 backdrop-blur-sm rounded-2xl border border-white/30 overflow-hidden">
+                      {/* Cabeçalho do Mês */}
+                      <button
+                        onClick={() => toggleMonth(monthKey)}
+                        className="w-full px-6 py-4 text-left hover:bg-white/10 transition-colors"
+                      >
+                        <div className="flex justify-between items-center">
+                          <h3 className="text-xl font-semibold text-white">{monthKey}</h3>
+                          <span className="text-white text-2xl">
+                            {expandedMonths[monthKey] ? '▼' : '▶'}
+                          </span>
+                        </div>
+                      </button>
+
+                      {/* Conteúdo do Mês (expandível) */}
+                      {expandedMonths[monthKey] && (
+                        <div className="px-6 pb-4">
+                          {weeks.map((week) => (
+                            <div key={week.id} className="mb-4 last:mb-0 bg-white/10 rounded-xl p-4 border border-white/20">
+                              {/* Cabeçalho da Semana */}
+                              <button
+                                onClick={() => toggleWeek(week.id)}
+                                className="w-full text-left"
+                              >
+                                <div className="flex justify-between items-center">
+                                  <h4 className="text-lg font-semibold text-white">{week.label}</h4>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-white/80 text-sm">
+                                      {new Date(week.date?.toDate?.() || week.date).toLocaleDateString('pt-BR')}
+                                    </span>
+                                    <span className="text-white text-xl">
+                                      {expandedWeeks[week.id] ? '▼' : '▶'}
+                                    </span>
+                                  </div>
+                                </div>
+                              </button>
+
+                              {/* Conteúdo da Semana (expandível) */}
+                              {expandedWeeks[week.id] && (
+                                <div className="mt-4">
+                                  {/* Botão de Apagar */}
+                                  <div className="flex justify-end mb-4">
+                                    <button
+                                      onClick={() => handleDeleteWeek(week.id, week.label)}
+                                      className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg font-semibold transition-colors flex items-center gap-2"
+                                    >
+                                      🗑️ Apagar Semana
+                                    </button>
+                                  </div>
+
+                                  {/* Resumo da Semana */}
+                                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                                    <div className="bg-white/20 rounded-xl p-3 text-center">
+                                      <div className="text-2xl font-bold text-white">{week.totalDelivered}</div>
+                                      <div className="text-white/80 text-sm">Total Entregue</div>
+                                    </div>
+                                    <div className="bg-white/20 rounded-xl p-3 text-center">
+                                      <div className="text-2xl font-bold text-white">
+                                        {Object.values(week.goals || {}).reduce((sum, goal) => sum + (Number(goal) || 0), 0)}
+                                      </div>
+                                      <div className="text-white/80 text-sm">Meta Total</div>
+                                    </div>
+                                    <div className="bg-white/20 rounded-xl p-3 text-center">
+                                      <div className="text-2xl font-bold text-white">
+                                        {week.members?.length || 0}
+                                      </div>
+                                      <div className="text-white/80 text-sm">Membros</div>
+                                    </div>
+                                    <div className="bg-white/20 rounded-xl p-3 text-center">
+                                      <div className="text-2xl font-bold text-white">
+                                        {Math.round((week.totalDelivered / Object.values(week.goals || {}).reduce((sum, goal) => sum + (Number(goal) || 1), 1)) * 100)}%
+                                      </div>
+                                      <div className="text-white/80 text-sm">Conclusão</div>
+                                    </div>
+                                  </div>
+
+                                  {/* Detalhes dos Membros */}
+                                  <h5 className="text-lg font-semibold text-white mb-3">🏆 Desempenho dos Membros</h5>
+                                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    {week.members?.map((member, index) => (
+                                      <div key={index} className="bg-white/10 rounded-xl p-4 border border-white/20">
+                                        <h6 className="font-semibold text-white mb-2">{member.name}</h6>
+                                        <div className="space-y-2">
+                                          <div className="flex justify-between text-sm">
+                                            <span className="text-white/80">Progresso:</span>
+                                            <span className="text-white font-medium">{member.overallProgress}%</span>
+                                          </div>
+                                          <div className="flex justify-between text-sm">
+                                            <span className="text-white/80">Materiais:</span>
+                                            <span className="text-white font-medium">
+                                              {member.materialsCompleted}/{member.materialsWithGoals}
+                                            </span>
+                                          </div>
+                                          <div className="flex justify-between text-sm">
+                                            <span className="text-white/80">Total Entregue:</span>
+                                            <span className="text-white font-medium">{member.totalDelivered}</span>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+
+                                  {/* Metas da Semana */}
+                                  <h5 className="text-lg font-semibold text-white mt-6 mb-3">🎯 Metas da Semana</h5>
+                                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                    {Object.entries(week.goals || {}).map(([material, goal]) => (
+                                      goal > 0 && (
+                                        <div key={material} className="bg-white/10 rounded-lg p-3 text-center">
+                                          <div className="text-white font-medium text-sm">{MATERIAL_ICONS[material]} {material}</div>
+                                          <div className="text-white/80 text-xs">Meta: {goal}</div>
+                                        </div>
+                                      )
+                                    ))}
+                                  </div>
                                 </div>
                               )}
                             </div>
-                          </td>
-                        );
-                      })}
-                      <td className="p-4 text-center font-bold">
-                        <div className={`px-3 py-2 rounded-lg ${
-                          progress >= 100 ? "bg-green-500 text-white" :
-                          progress >= 50 ? "bg-amber-500 text-white" :
-                          "bg-red-500 text-white"
-                        }`}>
-                          {totalDelivered}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-                <tr className="bg-gradient-to-r from-gray-100 to-gray-200 font-bold">
-                  <td className="p-4 text-gray-800 text-lg">📊 TOTAL ENTREGUE</td>
-                  <td className="p-4 text-center text-gray-600">-</td>
-                  {memberNames.map((_, mi) => (
-                    <td key={mi} className="p-4 text-center bg-gradient-to-b from-green-100 to-green-200 text-green-700 text-lg font-bold">
-                      {getMemberTotalDelivered(mi)}
-                    </td>
-                  ))}
-                  <td className="p-4 text-center bg-gradient-to-b from-green-200 to-green-300 text-green-800 text-lg font-bold">
-                    {Object.keys(delivered).reduce((sum, mat) => sum + getMaterialTotalDelivered(mat), 0)}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-
-  // Conteúdo da Aba 4: Resumo e Status
-  const StatusContent = (
-    <div className="bg-white/80 backdrop-blur-lg rounded-3xl shadow-2xl p-8 border border-white/20">
-      <div className="flex items-center gap-3 mb-8">
-        <div className="p-3 bg-gradient-to-r from-orange-500 to-red-600 rounded-2xl">
-          <span className="text-2xl">📈</span>
-        </div>
-        <div>
-          <h2 className="text-3xl font-bold text-gray-800">Resumo e Status</h2>
-          <p className="text-gray-600">Visão geral do progresso de todos os materiais</p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {MATERIALS.map(material => {
-          const deliveredTot = getMaterialTotalDelivered(material);
-          const targetTotal = Number(weeklyGoals[material]) || 0;
-          const pct = targetTotal > 0 ? Math.min(100, Math.round((deliveredTot / targetTotal) * 100)) : 0;
-          const status = getStatusForTotalDelivery(material);
-          
-          return (
-            <div key={material} className="bg-gradient-to-br from-white to-gray-50 rounded-2xl p-6 border border-gray-200 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <span className="text-3xl">{MATERIAL_ICONS[material]}</span>
-                  <h3 className="font-bold text-gray-800 text-lg">{material}</h3>
-                </div>
-                <span className={`px-3 py-1 rounded-full text-xs font-semibold text-white bg-gradient-to-r ${status.color}`}>
-                  {status.label}
-                </span>
-              </div>
-              
-              <div className="mb-4">
-                <div className="flex justify-between text-sm text-gray-600 mb-2">
-                  <span>Progresso Geral</span>
-                  <span className="font-bold">{pct}%</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-3 shadow-inner">
-                  <div 
-                    className={`h-3 rounded-full transition-all duration-1000 ease-out bg-gradient-to-r ${status.color}`}
-                    style={{width: `${pct}%`}}
-                  ></div>
-                </div>
-              </div>
-              
-              <div className="text-center">
-                <p className="text-sm text-gray-600">
-                  <span className="font-bold text-green-600 text-lg">{deliveredTot}</span> de{' '}
-                  <span className="font-bold text-blue-600 text-lg">{targetTotal}</span>
-                </p>
-                <p className="text-xs text-gray-500 mt-1">unidades entregues</p>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-
-  // Conteúdo da Aba 5: Histórico Mensal (COM BOTÃO DE APAGAR)
-  const MonthlyHistoryContent = (
-    <div className="bg-white/80 backdrop-blur-lg rounded-3xl shadow-2xl p-8 border border-white/20">
-      <div className="flex items-center gap-3 mb-8">
-        <div className="p-3 bg-gradient-to-r from-purple-500 to-pink-600 rounded-2xl">
-          <span className="text-2xl">📊</span>
-        </div>
-        <div>
-          <h2 className="text-3xl font-bold text-gray-800">Histórico Mensal</h2>
-          <p className="text-gray-600">Desempenho detalhado por mês e semana</p>
-        </div>
-      </div>
-
-      {Object.keys(historyByMonth).length === 0 ? (
-        <div className="text-center py-12">
-          <div className="text-6xl mb-4">📅</div>
-          <h3 className="text-2xl font-bold text-gray-700 mb-2">Nenhum Histórico</h3>
-          <p className="text-gray-600 mb-6">Feche semanas para começar o histórico</p>
-          <button
-            onClick={() => setActiveTab('Metas Manuais')}
-            className="px-8 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-2xl font-semibold hover:from-blue-600 hover:to-purple-700 transition-all duration-300 transform hover:scale-105"
-          >
-            🗓️ Fechar Primeira Semana
-          </button>
-        </div>
-      ) : (
-        <div className="space-y-6">
-          {Object.entries(historyByMonth).map(([monthKey, weeks]) => (
-            <div key={monthKey} className="bg-gradient-to-br from-blue-50 to-indigo-100 rounded-2xl p-6 border border-blue-200">
-              {/* Cabeçalho do Mês */}
-              <button
-                onClick={() => toggleMonth(monthKey)}
-                className="w-full flex items-center justify-between text-left mb-4"
-              >
-                <div className="flex items-center gap-3">
-                  <span className="text-2xl">📅</span>
-                  <h3 className="text-xl font-bold text-gray-800">{monthKey}</h3>
-                </div>
-                <span className="text-2xl transform transition-transform duration-300">
-                  {expandedMonths[monthKey] ? '▼' : '▶'}
-                </span>
-              </button>
-
-              {/* Conteúdo do Mês (expandível) */}
-              {expandedMonths[monthKey] && (
-                <div className="space-y-4">
-                  {weeks.map((week) => (
-                    <div key={week.id} className="bg-white rounded-xl p-4 border border-blue-200">
-                      {/* Cabeçalho da Semana */}
-                      <div className="flex items-center justify-between mb-3">
-                        <button
-                          onClick={() => toggleWeek(week.id)}
-                          className="flex items-center gap-2 text-left flex-1"
-                        >
-                          <span className="text-lg">📋</span>
-                          <h4 className="font-bold text-gray-800">{week.label}</h4>
-                          <span className="transform transition-transform duration-300 ml-2">
-                            {expandedWeeks[week.id] ? '▼' : '▶'}
-                          </span>
-                        </button>
-                        
-                        {/* ✅ BOTÃO DE APAGAR SEMANA */}
-                        <button
-                          onClick={() => handleDeleteWeek(week.id, week.label)}
-                          className="px-3 py-2 bg-gradient-to-r from-red-400 to-red-500 text-white rounded-lg hover:from-red-500 hover:to-red-600 transition-all duration-200 ml-2"
-                          title="Apagar esta semana"
-                        >
-                          🗑️
-                        </button>
-                      </button>
-
-                      {/* Conteúdo da Semana (expandível) */}
-                      {expandedWeeks[week.id] && (
-                        <div className="space-y-4">
-                          {/* Resumo dos Membros */}
-                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {week.members.map((member, memberIndex) => (
-                              <div key={memberIndex} className="bg-gray-50 rounded-lg p-3 border border-gray-200">
-                                <div className="flex items-center justify-between mb-2">
-                                  <span className="font-semibold text-gray-800">{member.name}</span>
-                                  <span className={`px-2 py-1 rounded text-xs font-bold ${
-                                    member.overallProgress >= 100 ? 'bg-green-500 text-white' :
-                                    member.overallProgress >= 80 ? 'bg-amber-500 text-white' :
-                                    member.overallProgress >= 50 ? 'bg-orange-500 text-white' :
-                                    'bg-red-500 text-white'
-                                  }`}>
-                                    {member.overallProgress}%
-                                  </span>
-                                </div>
-                                
-                                <div className="mb-2">
-                                  <div className="flex justify-between text-xs text-gray-600 mb-1">
-                                    <span>Progresso</span>
-                                    <span>{member.overallProgress}%</span>
-                                  </div>
-                                  <div className="w-full bg-gray-200 rounded-full h-2">
-                                    <div 
-                                      className={`h-2 rounded-full transition-all duration-1000 ${
-                                        member.overallProgress >= 100 ? 'bg-green-500' :
-                                        member.overallProgress >= 80 ? 'bg-amber-500' :
-                                        member.overallProgress >= 50 ? 'bg-orange-500' :
-                                        'bg-red-500'
-                                      }`}
-                                      style={{width: `${member.overallProgress}%`}}
-                                    ></div>
-                                  </div>
-                                </div>
-                                
-                                <div className="text-xs text-gray-600">
-                                  {member.materialsCompleted}/{member.materialsWithGoals} materiais • {member.totalDelivered} unid.
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-
-                          {/* Detalhes dos Materiais */}
-                          <details className="mt-3">
-                            <summary className="cursor-pointer text-sm text-blue-600 font-semibold hover:text-blue-800">
-                              📋 Ver detalhes dos materiais
-                            </summary>
-                            <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-2">
-                              {MATERIALS.map(material => {
-                                const goal = week.goals[material] || 0;
-                                const totalDelivered = week.members.reduce((sum, member) => {
-                                  const materialData = member.details.find(d => d.material === material);
-                                  return sum + (materialData?.delivered || 0);
-                                }, 0);
-                                return goal > 0 ? (
-                                  <div key={material} className="bg-white rounded p-2 border border-gray-300 text-xs">
-                                    <div className="font-semibold">{material}</div>
-                                    <div>{totalDelivered}/{goal}</div>
-                                  </div>
-                                ) : null;
-                              })}
-                            </div>
-                          </details>
+                          ))}
                         </div>
                       )}
                     </div>
@@ -1097,237 +1045,181 @@ function FarmDashboard() {
                 </div>
               )}
             </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
+          )}
 
-  // Conteúdo da Aba 6: Ranking
-  const RankingContent = (
-    <div className="bg-white/80 backdrop-blur-lg rounded-3xl shadow-2xl p-8 border border-white/20">
-      <div className="flex items-center gap-3 mb-8">
-        <div className="p-3 bg-gradient-to-r from-yellow-500 to-amber-600 rounded-2xl">
-          <span className="text-2xl">🏆</span>
-        </div>
-        <div>
-          <h2 className="text-3xl font-bold text-gray-800">Ranking Semanal</h2>
-          <p className="text-gray-600">Desempenho dos membros baseado nas metas</p>
-        </div>
-      </div>
-
-      {currentRanking.length === 0 || memberCount === 0 || Object.values(weeklyGoals).every(t => Number(t) === 0) ? (
-        <div className="text-center py-12">
-          <div className="text-6xl mb-4">📈</div>
-          <p className="text-amber-600 font-semibold text-lg">Configure metas e adicione membros para ver o ranking</p>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {currentRanking.map((item, idx) => (
-            <div key={idx} className="bg-gradient-to-br from-white to-gray-50 rounded-2xl p-6 border border-amber-200 shadow-lg hover:shadow-xl transition-all duration-300">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-4">
-                  <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg ${
-                    idx === 0 ? 'bg-gradient-to-r from-yellow-400 to-amber-500' :
-                    idx === 1 ? 'bg-gradient-to-r from-gray-400 to-gray-500' :
-                    idx === 2 ? 'bg-gradient-to-r from-amber-600 to-orange-500' :
-                    'bg-gradient-to-r from-blue-400 to-blue-500'
-                  }`}>
-                    {idx + 1}
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-gray-800 text-lg">{item.name}</h3>
-                    <p className="text-sm text-gray-600">{item.medal}</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="text-2xl font-bold text-gray-800">{item.pct}%</div>
-                  <div className="text-sm text-gray-600">concluído</div>
-                </div>
-              </div>
+          {/* Tab: Ranking */}
+          {activeTab === 'Ranking' && (
+            <div>
+              <h2 className="text-2xl font-bold text-white mb-6">🏆 Ranking da Semana</h2>
               
-              <div className="mb-3">
-                <div className="flex justify-between text-sm text-gray-600 mb-2">
-                  <span>{item.totalDelivered} / {item.totalTarget} unidades</span>
-                  <span>{item.pct}%</span>
+              {currentRanking.length === 0 ? (
+                <div className="text-center py-12">
+                  <div className="text-6xl mb-4">📊</div>
+                  <h3 className="text-xl font-semibold text-white mb-2">Nenhum dado para ranking</h3>
+                  <p className="text-white/60">Defina metas e entregas para ver o ranking</p>
                 </div>
-                <div className="w-full bg-gray-200 rounded-full h-3">
-                  <div 
-                    className="bg-gradient-to-r from-green-400 to-blue-500 h-3 rounded-full transition-all duration-1000"
-                    style={{width: `${item.pct}%`}}
-                  ></div>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-
-  // Conteúdo da Aba 7: Gerenciar Membros
-  const MemberContent = (
-    <div className="bg-white/80 backdrop-blur-lg rounded-3xl shadow-2xl p-8 border border-white/20">
-      <div className="flex items-center gap-3 mb-8">
-        <div className="p-3 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-2xl">
-          <span className="text-2xl">👥</span>
-        </div>
-        <div>
-          <h2 className="text-3xl font-bold text-gray-800">Gerenciar Membros</h2>
-          <p className="text-gray-600">Gerencie a equipe de forma colaborativa em tempo real</p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div className="bg-gradient-to-br from-blue-50 to-indigo-100 rounded-2xl p-6 border border-blue-200">
-          <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-            <span>➕</span>
-            Adicionar Novo Membro
-          </h3>
-          <form onSubmit={(e) => {
-            e.preventDefault();
-            const newName = e.target.newMemberName.value.trim();
-            if (newName) {
-              handleAddMember(newName);
-              e.target.newMemberName.value = '';
-            }
-          }} className="space-y-4">
-            <input
-              type="text"
-              name="newMemberName"
-              placeholder="Digite o nome do membro..."
-              className="w-full border-2 border-blue-200 rounded-xl px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200"
-            />
-            <button 
-              type="submit"
-              className="w-full px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 transition-all duration-300 transform hover:scale-105"
-            >
-              ➕ Adicionar Membro
-            </button>
-          </form>
-        </div>
-
-        <div className="bg-gradient-to-br from-green-50 to-emerald-100 rounded-2xl p-6 border border-green-200">
-          <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-            <span>👥</span>
-            Membros da Equipe ({memberCount})
-          </h3>
-          
-          {memberCount === 0 ? (
-            <div className="text-center py-8">
-              <div className="text-6xl mb-4">👤</div>
-              <p className="text-gray-600 font-semibold">Nenhum membro na equipe</p>
-              <p className="text-gray-500 text-sm">Adicione o primeiro membro!</p>
-            </div>
-          ) : (
-            <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
-              {memberNames.map((name, index) => (
-                <div key={index} className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm hover:shadow-md transition-all duration-300">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 bg-gradient-to-r from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white font-bold">
-                        {index + 1}
-                      </div>
-                      <div>
-                        <div className="font-semibold text-gray-800">{name}</div>
-                        <div className="text-sm text-gray-600">
-                          Total: {getMemberTotalDelivered(index)} entregues
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {currentRanking.map((member, index) => (
+                    <div 
+                      key={member.index}
+                      className={`bg-white/20 backdrop-blur-sm rounded-2xl p-6 border border-white/30 cursor-pointer hover:bg-white/30 transition-all duration-300 transform hover:scale-105 ${
+                        index === 0 ? 'ring-2 ring-yellow-400 shadow-lg' : ''
+                      }`}
+                      onClick={() => setViewingMemberIndex(member.index)}
+                    >
+                      <div className="text-center">
+                        {/* Medalha */}
+                        <div className="text-4xl mb-3">
+                          {index === 0 && '🥇'}
+                          {index === 1 && '🥈'}
+                          {index === 2 && '🥉'}
+                          {index > 2 && '📊'}
+                        </div>
+                        
+                        {/* Posição */}
+                        <div className="text-white/60 text-sm mb-1">#{index + 1} no ranking</div>
+                        
+                        {/* Nome */}
+                        <h3 className="text-xl font-bold text-white mb-3">{member.name}</h3>
+                        
+                        {/* Estatísticas */}
+                        <div className="space-y-2">
+                          <div className="flex justify-between text-sm">
+                            <span className="text-white/80">Progresso:</span>
+                            <span className="text-white font-bold">{member.pct}%</span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-white/80">Entregue:</span>
+                            <span className="text-white font-bold">{member.totalDelivered}</span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-white/80">Meta:</span>
+                            <span className="text-white font-bold">{member.totalTarget}</span>
+                          </div>
+                        </div>
+                        
+                        {/* Barra de Progresso */}
+                        <div className="mt-4 w-full bg-gray-400/30 rounded-full h-3">
+                          <div 
+                            className="h-3 rounded-full bg-gradient-to-r from-green-400 to-emerald-500"
+                            style={{ width: `${member.pct}%` }}
+                          ></div>
+                        </div>
+                        
+                        {/* Medalha */}
+                        <div className="mt-3">
+                          <span className="px-3 py-1 bg-gradient-to-r from-amber-400 to-orange-500 text-white text-sm font-medium rounded-full">
+                            {member.medal}
+                          </span>
                         </div>
                       </div>
                     </div>
-                    
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => setViewingMemberIndex(index)}
-                        className="px-3 py-2 bg-gradient-to-r from-indigo-400 to-indigo-500 text-white rounded-lg hover:from-indigo-500 hover:to-indigo-600 transition-all duration-200"
-                        title="Ver Progresso"
-                      >
-                        👁️
-                      </button>
-                      
-                      <input
-                        type="text"
-                        defaultValue={name}
-                        onBlur={(e) => handleRenameMember(index, e.target.value.trim() || name)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.target.blur();
-                          }
-                        }}
-                        className="w-32 border-2 border-gray-300 rounded-lg px-3 py-2 text-center focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200"
-                        title="Clique para editar"
-                      />
-                      
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Tab: Gerenciar Membros */}
+          {activeTab === 'Gerenciar Membros' && (
+            <div>
+              <h2 className="text-2xl font-bold text-white mb-6">👥 Gerenciar Membros</h2>
+              
+              {/* Adicionar Novo Membro */}
+              <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-6 border border-white/30 mb-6">
+                <h3 className="text-xl font-semibold text-white mb-4">➕ Adicionar Novo Membro</h3>
+                <form onSubmit={(e) => {
+                  e.preventDefault();
+                  const formData = new FormData(e.target);
+                  const name = formData.get('newMember');
+                  if (name.trim()) {
+                    handleAddMember(name);
+                    e.target.reset();
+                  }
+                }} className="flex gap-3">
+                  <input
+                    type="text"
+                    name="newMember"
+                    placeholder="Nome do novo membro..."
+                    className="flex-1 px-4 py-3 rounded-2xl bg-white/20 border border-white/30 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/50"
+                  />
+                  <button
+                    type="submit"
+                    className="px-6 py-3 bg-green-500 hover:bg-green-600 text-white rounded-2xl font-semibold transition-colors"
+                  >
+                    Adicionar
+                  </button>
+                </form>
+              </div>
+
+              {/* Lista de Membros */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {memberNames.map((member, index) => (
+                  <div key={index} className="bg-white/20 backdrop-blur-sm rounded-2xl p-4 border border-white/30">
+                    <div className="flex justify-between items-center mb-3">
+                      <h3 className="text-lg font-semibold text-white">{member}</h3>
                       <button
                         onClick={() => handleRemoveMember(index)}
-                        className="px-3 py-2 bg-gradient-to-r from-red-400 to-red-500 text-white rounded-lg hover:from-red-500 hover:to-red-600 transition-all duration-200"
-                        title="Remover Membro"
+                        className="text-red-400 hover:text-red-300 transition-colors"
+                        title="Remover membro"
                       >
                         🗑️
                       </button>
                     </div>
+                    
+                    <form onSubmit={(e) => {
+                      e.preventDefault();
+                      const formData = new FormData(e.target);
+                      const newName = formData.get('rename');
+                      if (newName.trim() && newName !== member) {
+                        handleRenameMember(index, newName);
+                      }
+                    }} className="space-y-3">
+                      <input
+                        type="text"
+                        name="rename"
+                        defaultValue={member}
+                        className="w-full px-3 py-2 rounded-lg bg-white/20 border border-white/30 text-white text-center focus:outline-none focus:ring-1 focus:ring-white/50"
+                      />
+                      <button
+                        type="submit"
+                        className="w-full px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium transition-colors"
+                      >
+                        Renomear
+                      </button>
+                    </form>
+                    
+                    <div className="mt-3 pt-3 border-t border-white/20 text-center">
+                      <div className="text-white/80 text-sm">
+                        Total Entregue: {getMemberTotalDelivered(index)}
+                      </div>
+                      <button
+                        onClick={() => setViewingMemberIndex(index)}
+                        className="mt-2 w-full px-3 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg font-medium transition-colors"
+                      >
+                        Ver Progresso
+                      </button>
+                    </div>
                   </div>
+                ))}
+              </div>
+
+              {memberNames.length === 0 && (
+                <div className="text-center py-12">
+                  <div className="text-6xl mb-4">👥</div>
+                  <h3 className="text-xl font-semibold text-white mb-2">Nenhum membro cadastrado</h3>
+                  <p className="text-white/60">Adicione membros para começar o controle</p>
                 </div>
-              ))}
+              )}
             </div>
           )}
         </div>
-      </div>
 
-      {/* Visualizador de Progresso Individual */}
-      {viewingMemberIndex !== null && <MemberProgressViewer memberIndex={viewingMemberIndex} />}
-    </div>
-  );
-
-  // Renderização do Conteúdo
-  const renderContent = () => {
-    switch (activeTab) {
-      case 'Calculadora de Produção': return CalculatorContent;
-      case 'Metas Manuais': return ManualGoalsContent;
-      case 'Controle de Entregas': return ControlContent;
-      case 'Resumo e Status': return StatusContent;
-      case 'Histórico Mensal': return MonthlyHistoryContent;
-      case 'Ranking': return RankingContent;
-      case 'Gerenciar Membros': return MemberContent;
-      default: return ControlContent;
-    }
-  };
-
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-400 via-purple-500 to-indigo-600 p-4">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <div className="bg-white/10 backdrop-blur-lg rounded-3xl p-8 border border-white/20 shadow-2xl mb-6">
-            <h1 className="text-5xl font-bold text-white mb-4 drop-shadow-lg">
-              🏭 Controle de Farm
-            </h1>
-            <p className="text-white/90 text-xl font-light">
-              Sistema colaborativo em tempo real
-            </p>
-            <div className="flex justify-center items-center gap-4 mt-4 text-white/80">
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
-                <span>Conectado</span>
-              </div>
-              <span>•</span>
-              <span>{memberCount} {memberCount === 1 ? 'membro' : 'membros'}</span>
-              <span>•</span>
-              <span>{Object.keys(production).length} produtos</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Tabs e Conteúdo */}
-        <Tabs tabs={TABS} activeTab={activeTab} setActiveTab={setActiveTab} />
-        {renderContent()}
-
-        {/* Footer */}
-        <div className="text-center mt-12 mb-8">
-          <p className="text-white/60 text-sm">
-            🚀 Desenvolvido para otimizar o farm colaborativo • Atualizado em tempo real
-          </p>
-        </div>
+        {/* Modal de Progresso Individual */}
+        {viewingMemberIndex !== null && (
+          <MemberProgressViewer memberIndex={viewingMemberIndex} />
+        )}
       </div>
     </div>
   );
