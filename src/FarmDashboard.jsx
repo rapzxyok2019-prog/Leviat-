@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react'; 
 import { initializeApp } from 'firebase/app'; 
 import { getAuth, signInAnonymously, onAuthStateChanged, setPersistence, browserLocalPersistence } from 'firebase/auth'; 
-import { getFirestore, doc, setDoc, updateDoc, onSnapshot, collection, query, addDoc, serverTimestamp, orderBy } from 'firebase/firestore'; 
+import { getFirestore, doc, setDoc, updateDoc, onSnapshot, collection, query, addDoc, serverTimestamp, orderBy, deleteDoc } from 'firebase/firestore'; 
 
 // Configuração do Firebase
 const FIREBASE_CONFIG = {
@@ -22,18 +22,18 @@ const auth = getAuth(app);
 const PRODUCTION_DOC_REF = doc(db, 'farm_data', 'production');
 const MEMBERS_DOC_REF = doc(db, 'farm_data', 'members');
 const DELIVERED_DOC_REF = doc(db, 'farm_data', 'delivered');
-const WEEKLY_GOALS_REF = doc(db, 'farm_data', 'weekly_goals'); // ✅ NOVO: Metas manuais
+const WEEKLY_GOALS_REF = doc(db, 'farm_data', 'weekly_goals');
 const HISTORY_COLLECTION_REF = collection(db, 'farm_history');
 
 // --- Receitas ATUALIZADAS ---
 const RECIPES = {
   Colete: { Borracha: 10, "Plástico": 10, Alumínio: 20, Ferro: 20, Tecido: 1 },
-  Algema: { Borracha: 20, "Plástico": 20, Alumínio: 25, Cobre: 15, Ferro: 25 }, // ✅ CORRIGIDO
+  Algema: { Borracha: 20, "Plástico": 20, Alumínio: 25, Cobre: 15, Ferro: 25 },
   Capuz: { Borracha: 10, "Plástico": 10, Tecido: 1 },
   "Flipper MK3": { Alumínio: 25, Ferro: 25, Cobre: 25, "Emb. Plástica": 25, Titânio: 1 }
 };
 
-// LISTA DE MATERIAIS (baseado nas receitas)
+// LISTA DE MATERIAIS
 const MATERIALS = ['Borracha', 'Plástico', 'Alumínio', 'Cobre', 'Ferro', 'Emb. Plástica', 'Titânio', 'Tecido'];
 
 // Ícones para cada material
@@ -48,12 +48,12 @@ const MATERIAL_ICONS = {
   'Tecido': '👕'
 };
 
-// --- Hooks de Sincronização e Estado ATUALIZADO ---
+// --- Hooks de Sincronização e Estado ---
 const useSharedData = () => {
   const [production, setProductionState] = useState({ Colete: '200', Algema: '100', Capuz: '50', "Flipper MK3": '20' });
   const [memberNames, setMemberNamesState] = useState(['Membro 1', 'Membro 2', 'Membro 3']);
   const [delivered, setDeliveredState] = useState({});
-  const [weeklyGoals, setWeeklyGoalsState] = useState({}); // ✅ NOVO: Metas manuais
+  const [weeklyGoals, setWeeklyGoalsState] = useState({});
   const [history, setHistory] = useState([]);
   const [isDbReady, setIsDbReady] = useState(false);
   const [userId, setUserId] = useState(null);
@@ -73,7 +73,7 @@ const useSharedData = () => {
     setupAuth();
   }, []);
 
-  // Efeito 2: Sincronização em Tempo Real ATUALIZADO
+  // Efeito 2: Sincronização em Tempo Real
   useEffect(() => {
     if (!userId) return;
 
@@ -112,7 +112,7 @@ const useSharedData = () => {
       }
     });
 
-    // ✅ NOVO: Listener Metas Manuais
+    // Listener Metas Manuais
     const unsubWeeklyGoals = onSnapshot(WEEKLY_GOALS_REF, (docSnap) => {
       if (docSnap.exists() && docSnap.data().goals) {
         setWeeklyGoalsState(docSnap.data().goals);
@@ -143,7 +143,7 @@ const useSharedData = () => {
     };
   }, [userId]);
 
-  // Funções de Escrita ATUALIZADAS
+  // Funções de Escrita
   const updateProduction = useCallback((newProduction) => {
     updateDoc(PRODUCTION_DOC_REF, { production: newProduction });
   }, []);
@@ -156,7 +156,6 @@ const useSharedData = () => {
     updateDoc(DELIVERED_DOC_REF, { delivered: newDelivered });
   }, []);
 
-  // ✅ NOVO: Atualizar metas manuais
   const updateWeeklyGoals = useCallback((newGoals) => {
     updateDoc(WEEKLY_GOALS_REF, { goals: newGoals });
   }, []);
@@ -165,13 +164,13 @@ const useSharedData = () => {
     production, updateProduction, 
     memberNames, updateMemberNames, 
     delivered, updateDelivered, 
-    weeklyGoals, updateWeeklyGoals, // ✅ NOVO
+    weeklyGoals, updateWeeklyGoals,
     history, 
     isDbReady 
   };
 };
 
-// --- Funções de Cálculo ATUALIZADAS ---
+// --- Funções de Cálculo ---
 function sumMaterials(production) {
   const totals = {};
   MATERIALS.forEach(material => {
@@ -193,9 +192,9 @@ function ceilDivide(a, b) {
   return Math.ceil(a / b);
 }
 
-// ✅ FUNÇÃO ATUALIZADA: Agora usa metas manuais (weeklyGoals) em vez de perMember
 function calculateRanking(memberNames, weeklyGoals, delivered) {
   if (memberNames.length === 0 || Object.keys(weeklyGoals).length === 0) return [];
+  
   return memberNames.map((name, index) => {
     let totalTarget = 0;
     let totalDelivered = 0;
@@ -215,7 +214,7 @@ function calculateRanking(memberNames, weeklyGoals, delivered) {
   }).sort((a, b) => b.pct - a.pct);
 }
 
-// ✅ NOVA FUNÇÃO: Calcular resumo semanal para histórico
+// Função para calcular resumo semanal
 const calculateWeeklySummary = (memberIndex, weeklyGoals, delivered) => {
   let materialsCompleted = 0;
   let totalProgress = 0;
@@ -245,14 +244,14 @@ const calculateWeeklySummary = (memberIndex, weeklyGoals, delivered) => {
   };
 };
 
-// --- Componente de Tabs Melhorado ---
+// --- Componente de Tabs ---
 function Tabs({ tabs, activeTab, setActiveTab }) {
   const icons = {
     'Calculadora de Produção': '🧮',
-    'Metas Manuais': '🎯', // ✅ NOVA ABA
+    'Metas Manuais': '🎯',
     'Controle de Entregas': '📦', 
     'Resumo e Status': '📈',
-    'Histórico Mensal': '📊', // ✅ NOVA ABA
+    'Histórico Mensal': '📊',
     'Ranking': '🏆',
     'Gerenciar Membros': '👥'
   };
@@ -279,16 +278,15 @@ function Tabs({ tabs, activeTab, setActiveTab }) {
   );
 }
 
-// --- Componente Principal ATUALIZADO ---
+// --- Componente Principal ---
 function FarmDashboard() {
-  // ✅ ABAS ATUALIZADAS
   const TABS = ['Calculadora de Produção', 'Metas Manuais', 'Controle de Entregas', 'Resumo e Status', 'Histórico Mensal', 'Ranking', 'Gerenciar Membros'];
   
   const { 
     production, updateProduction, 
     memberNames, updateMemberNames, 
     delivered, updateDelivered, 
-    weeklyGoals, updateWeeklyGoals, // ✅ NOVO
+    weeklyGoals, updateWeeklyGoals,
     history, 
     isDbReady 
   } = useSharedData();
@@ -296,10 +294,11 @@ function FarmDashboard() {
   const [activeTab, setActiveTab] = useState('Controle de Entregas');
   const [viewingMemberIndex, setViewingMemberIndex] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [expandedMonths, setExpandedMonths] = useState({}); // ✅ NOVO: Controle de accordion
+  const [expandedMonths, setExpandedMonths] = useState({});
+  const [expandedWeeks, setExpandedWeeks] = useState({});
   const memberCount = memberNames.length;
 
-  // Cálculos Memoizados ATUALIZADOS
+  // Cálculos Memoizados
   const totals = useMemo(() => sumMaterials(production), [production]);
   const perMember = useMemo(() => {
     if(memberCount === 0) return {};
@@ -310,7 +309,6 @@ function FarmDashboard() {
     return r;
   }, [totals, memberCount]);
   
-  // ✅ ATUALIZADO: Agora usa weeklyGoals em vez de perMember
   const currentRanking = useMemo(() => calculateRanking(memberNames, weeklyGoals, delivered), [memberNames, weeklyGoals, delivered]);
 
   // Materiais filtrados para busca
@@ -320,7 +318,7 @@ function FarmDashboard() {
     );
   }, [searchTerm]);
 
-  // ✅ NOVO: Agrupar histórico por mês
+  // Agrupar histórico por mês
   const historyByMonth = useMemo(() => {
     const grouped = {};
     history.forEach(week => {
@@ -333,31 +331,22 @@ function FarmDashboard() {
     return grouped;
   }, [history]);
 
-  // Efeito de Ajuste da Estrutura 'delivered'
+  // Efeito para ajustar estrutura de deliveries
   useEffect(() => {
-    if (!isDbReady) return;
-    
-    const getNextDelivered = (prev) => {
-      const next = {};
-      MATERIALS.forEach(material => {
-        const previousDeliveries = prev[material] || [];
-        next[material] = Array.from({length: memberCount}, (_, i) => previousDeliveries[i] ?? '');
-      });
-      return next;
-    };
+    if (!isDbReady || memberCount === 0) return;
 
     const currentKeys = Object.keys(delivered);
     const expectedLength = delivered[currentKeys[0]]?.length ?? 0;
     
-    if (memberCount !== expectedLength || currentKeys.length !== MATERIALS.length) {
-      const nextDelivered = getNextDelivered(delivered);
+    if (memberCount !== expectedLength) {
+      const nextDelivered = {};
+      MATERIALS.forEach(material => {
+        const previousDeliveries = delivered[material] || [];
+        nextDelivered[material] = Array.from({length: memberCount}, (_, i) => previousDeliveries[i] ?? '');
+      });
       updateDelivered(nextDelivered);
     }
-    
-    if (viewingMemberIndex !== null && viewingMemberIndex >= memberCount) {
-      setViewingMemberIndex(null);
-    }
-  }, [memberCount, delivered, updateDelivered, viewingMemberIndex, isDbReady]);
+  }, [memberCount, delivered, updateDelivered, isDbReady]);
 
   // Funções de Manipulação de Dados
   const handleUpdateProduction = useCallback((product, value) => {
@@ -375,13 +364,12 @@ function FarmDashboard() {
     }
   }, [delivered, memberCount, updateDelivered]);
 
-  // ✅ NOVA FUNÇÃO: Atualizar metas manuais
   const handleUpdateWeeklyGoal = useCallback((material, value) => {
     const sanitizedValue = value === '' || (!isNaN(Number(value)) && Number(value) >= 0) ? value : weeklyGoals[material];
     updateWeeklyGoals({...weeklyGoals, [material]: sanitizedValue});
   }, [weeklyGoals, updateWeeklyGoals]);
 
-  // ✅ NOVA FUNÇÃO: Toggle accordion de meses
+  // Funções para Accordion
   const toggleMonth = useCallback((monthKey) => {
     setExpandedMonths(prev => ({
       ...prev,
@@ -389,8 +377,6 @@ function FarmDashboard() {
     }));
   }, []);
 
-  // ✅ NOVA FUNÇÃO: Toggle accordion de semanas
-  const [expandedWeeks, setExpandedWeeks] = useState({});
   const toggleWeek = useCallback((weekId) => {
     setExpandedWeeks(prev => ({
       ...prev,
@@ -398,12 +384,26 @@ function FarmDashboard() {
     }));
   }, []);
 
-  // FUNÇÕES AUXILIARES
+  // ✅ NOVA FUNÇÃO: Apagar semana do histórico
+  const handleDeleteWeek = async (weekId, weekLabel) => {
+    if (!window.confirm(`Tem certeza que deseja apagar a semana:\n"${weekLabel}"?\n\nEsta ação não pode ser desfeita!`)) {
+      return;
+    }
+
+    try {
+      await deleteDoc(doc(db, 'farm_history', weekId));
+      alert('Semana apagada com sucesso!');
+    } catch (error) {
+      console.error('Erro ao apagar semana:', error);
+      alert('Erro ao apagar semana. Tente novamente.');
+    }
+  };
+
+  // Funções Auxiliares
   const getMaterialTotalDelivered = useCallback((material) => {
     return (delivered[material] || []).reduce((a,b) => a + (Number(b) || 0), 0);
   }, [delivered]);
 
-  // ✅ ATUALIZADA: Agora usa weeklyGoals em vez de perMember
   const getStatusForMemberDelivery = useCallback((material, memberIndex) => {
     const target = Number(weeklyGoals[material]) || 0;
     const deliveredQty = Number(delivered[material]?.[memberIndex]) || 0;
@@ -415,7 +415,7 @@ function FarmDashboard() {
 
   const getStatusForTotalDelivery = useCallback((material) => {
     const deliveredTot = getMaterialTotalDelivered(material);
-    const targetTotal = Number(weeklyGoals[material]) || 0; // ✅ ATUALIZADO
+    const targetTotal = Number(weeklyGoals[material]) || 0;
     if(deliveredTot >= targetTotal) return {label:"Atingida", color:"from-green-500 to-emerald-600", bgColor: "bg-green-500"};
     if(deliveredTot >= targetTotal * 0.5) return {label:"Parcial", color:"from-amber-400 to-orange-500", bgColor: "bg-amber-500"};
     return {label:"Pendente", color:"from-red-400 to-red-600", bgColor: "bg-red-500"};
@@ -425,7 +425,7 @@ function FarmDashboard() {
     return Object.keys(delivered).reduce((sum, material) => sum + (Number(delivered[material]?.[memberIndex]) || 0), 0);
   }, [delivered]);
 
-  // ✅ FUNÇÃO ATUALIZADA: Fechar mês com dados detalhados
+  // Função para Fechar a Semana
   async function handleCloseMonth() {
     if (memberCount === 0) {
       alert("Adicione membros primeiro.");
@@ -434,11 +434,11 @@ function FarmDashboard() {
     
     const totalMetas = Object.values(weeklyGoals).reduce((a,b) => a + (Number(b) || 0), 0);
     if (totalMetas === 0) {
-      alert("Defina metas na aba 'Metas Manuais' antes de fechar o mês.");
+      alert("Defina metas na aba 'Metas Manuais' antes de fechar a semana.");
       return;
     }
 
-    if (!window.confirm("ATENÇÃO: Fechar o mês atual? Isso salvará o progresso e ZERARÁ todos os campos de 'Controle de Entregas'.")) {
+    if (!window.confirm("Fechar a semana atual? Isso salvará o progresso e ZERARÁ todos os campos de 'Controle de Entregas'.")) {
       return;
     }
 
@@ -447,7 +447,7 @@ function FarmDashboard() {
     const monthYear = now.toLocaleString('pt-BR', { month: 'long', year: 'numeric' });
     const weekLabel = `Semana ${weekNumber} - ${monthYear.charAt(0).toUpperCase() + monthYear.slice(1)}`;
     
-    // ✅ CALCULAR RESUMOS DETALHADOS
+    // Calcular resumos detalhados
     const memberSummaries = memberNames.map((member, index) => {
       const summary = calculateWeeklySummary(index, weeklyGoals, delivered);
       return {
@@ -467,7 +467,7 @@ function FarmDashboard() {
       weekNumber: weekNumber,
       monthYear: monthYear,
       date: serverTimestamp(),
-      members: memberSummaries, // ✅ AGORA COM DADOS DETALHADOS
+      members: memberSummaries,
       goals: {...weeklyGoals},
       totalDelivered: Object.keys(delivered).reduce((sum, mat) => sum + getMaterialTotalDelivered(mat), 0)
     };
@@ -481,11 +481,11 @@ function FarmDashboard() {
       });
       await updateDelivered(nextDelivered);
       
-      alert(`Mês de ${monthData.label} fechado com sucesso!`);
-      setActiveTab('Controle de Entregas');
+      alert(`Semana ${monthData.label} fechada com sucesso!`);
+      setActiveTab('Histórico Mensal');
     } catch (e) {
-      console.error("Erro ao fechar o mês:", e);
-      alert("Erro ao fechar o mês. Verifique o console.");
+      console.error("Erro ao fechar a semana:", e);
+      alert("Erro ao fechar a semana. Verifique o console.");
     }
   }
 
@@ -529,7 +529,7 @@ function FarmDashboard() {
     );
   }
 
-  // --- COMPONENTES DE CONTEÚDO ATUALIZADOS ---
+  // --- COMPONENTES DE CONTEÚDO ---
 
   // Componente de Visualização de Progresso Individual
   const MemberProgressViewer = ({ memberIndex }) => {
@@ -638,7 +638,6 @@ function FarmDashboard() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Entrada de Produção */}
         <div className="bg-gradient-to-br from-blue-50 to-indigo-100 rounded-2xl p-6 border border-blue-200">
           <h3 className="text-xl font-bold text-gray-800 mb-6">🎯 Meta de Produção Semanal</h3>
           <div className="space-y-4">
@@ -663,7 +662,6 @@ function FarmDashboard() {
           </div>
         </div>
 
-        {/* Materiais Necessários */}
         <div className="bg-gradient-to-br from-green-50 to-emerald-100 rounded-2xl p-6 border border-green-200">
           <h3 className="text-xl font-bold text-gray-800 mb-6">📦 Materiais Necessários</h3>
           <div className="space-y-3 max-h-80 overflow-y-auto">
@@ -689,7 +687,7 @@ function FarmDashboard() {
     </div>
   );
 
-  // ✅ NOVA ABA: Metas Manuais
+  // Conteúdo da Aba 2: Metas Manuais
   const ManualGoalsContent = (
     <div className="bg-white/80 backdrop-blur-lg rounded-3xl shadow-2xl p-8 border border-white/20">
       <div className="flex items-center gap-3 mb-8">
@@ -741,13 +739,13 @@ function FarmDashboard() {
           onClick={handleCloseMonth}
           className="px-8 py-4 bg-gradient-to-r from-purple-500 to-pink-600 text-white font-bold rounded-2xl hover:from-purple-600 hover:to-pink-700 transition-all duration-300 transform hover:scale-105 shadow-lg"
         >
-          🗓️ Fechar Mês e Zerar Entregas
+          🗓️ Fechar Semana e Zerar Entregas
         </button>
       </div>
     </div>
   );
 
-  // Conteúdo da Aba 3: Controle de Entregas (ATUALIZADO para usar metas manuais)
+  // Conteúdo da Aba 3: Controle de Entregas
   const ControlContent = (
     <div className="bg-white/80 backdrop-blur-lg rounded-3xl shadow-2xl p-8 border border-white/20">
       <div className="flex items-center gap-3 mb-8">
@@ -760,7 +758,6 @@ function FarmDashboard() {
         </div>
       </div>
 
-      {/* Barra de Pesquisa */}
       <div className="mb-6">
         <div className="relative">
           <input
@@ -898,7 +895,7 @@ function FarmDashboard() {
     </div>
   );
 
-  // Conteúdo da Aba 4: Resumo e Status (ATUALIZADO para usar metas manuais)
+  // Conteúdo da Aba 4: Resumo e Status
   const StatusContent = (
     <div className="bg-white/80 backdrop-blur-lg rounded-3xl shadow-2xl p-8 border border-white/20">
       <div className="flex items-center gap-3 mb-8">
@@ -957,7 +954,7 @@ function FarmDashboard() {
     </div>
   );
 
-  // ✅ NOVA ABA: Histórico Mensal
+  // Conteúdo da Aba 5: Histórico Mensal (COM BOTÃO DE APAGAR)
   const MonthlyHistoryContent = (
     <div className="bg-white/80 backdrop-blur-lg rounded-3xl shadow-2xl p-8 border border-white/20">
       <div className="flex items-center gap-3 mb-8">
@@ -974,12 +971,12 @@ function FarmDashboard() {
         <div className="text-center py-12">
           <div className="text-6xl mb-4">📅</div>
           <h3 className="text-2xl font-bold text-gray-700 mb-2">Nenhum Histórico</h3>
-          <p className="text-gray-600 mb-6">Feche meses para começar o histórico</p>
+          <p className="text-gray-600 mb-6">Feche semanas para começar o histórico</p>
           <button
             onClick={() => setActiveTab('Metas Manuais')}
             className="px-8 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-2xl font-semibold hover:from-blue-600 hover:to-purple-700 transition-all duration-300 transform hover:scale-105"
           >
-            🗓️ Fechar Primeiro Mês
+            🗓️ Fechar Primeira Semana
           </button>
         </div>
       ) : (
@@ -1006,17 +1003,26 @@ function FarmDashboard() {
                   {weeks.map((week) => (
                     <div key={week.id} className="bg-white rounded-xl p-4 border border-blue-200">
                       {/* Cabeçalho da Semana */}
-                      <button
-                        onClick={() => toggleWeek(week.id)}
-                        className="w-full flex items-center justify-between text-left mb-3"
-                      >
-                        <div className="flex items-center gap-2">
+                      <div className="flex items-center justify-between mb-3">
+                        <button
+                          onClick={() => toggleWeek(week.id)}
+                          className="flex items-center gap-2 text-left flex-1"
+                        >
                           <span className="text-lg">📋</span>
                           <h4 className="font-bold text-gray-800">{week.label}</h4>
-                        </div>
-                        <span className="transform transition-transform duration-300">
-                          {expandedWeeks[week.id] ? '▼' : '▶'}
-                        </span>
+                          <span className="transform transition-transform duration-300 ml-2">
+                            {expandedWeeks[week.id] ? '▼' : '▶'}
+                          </span>
+                        </button>
+                        
+                        {/* ✅ BOTÃO DE APAGAR SEMANA */}
+                        <button
+                          onClick={() => handleDeleteWeek(week.id, week.label)}
+                          className="px-3 py-2 bg-gradient-to-r from-red-400 to-red-500 text-white rounded-lg hover:from-red-500 hover:to-red-600 transition-all duration-200 ml-2"
+                          title="Apagar esta semana"
+                        >
+                          🗑️
+                        </button>
                       </button>
 
                       {/* Conteúdo da Semana (expandível) */}
@@ -1097,7 +1103,7 @@ function FarmDashboard() {
     </div>
   );
 
-  // Conteúdo da Aba 6: Ranking (ATUALIZADO para usar metas manuais)
+  // Conteúdo da Aba 6: Ranking
   const RankingContent = (
     <div className="bg-white/80 backdrop-blur-lg rounded-3xl shadow-2xl p-8 border border-white/20">
       <div className="flex items-center gap-3 mb-8">
@@ -1173,7 +1179,6 @@ function FarmDashboard() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Adicionar Membro */}
         <div className="bg-gradient-to-br from-blue-50 to-indigo-100 rounded-2xl p-6 border border-blue-200">
           <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
             <span>➕</span>
@@ -1202,7 +1207,6 @@ function FarmDashboard() {
           </form>
         </div>
 
-        {/* Lista de Membros */}
         <div className="bg-gradient-to-br from-green-50 to-emerald-100 rounded-2xl p-6 border border-green-200">
           <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
             <span>👥</span>
@@ -1275,7 +1279,7 @@ function FarmDashboard() {
     </div>
   );
 
-  // Renderização do Conteúdo ATUALIZADA
+  // Renderização do Conteúdo
   const renderContent = () => {
     switch (activeTab) {
       case 'Calculadora de Produção': return CalculatorContent;
