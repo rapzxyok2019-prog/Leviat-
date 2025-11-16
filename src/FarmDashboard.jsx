@@ -22,12 +22,13 @@ const auth = getAuth(app);
 const PRODUCTION_DOC_REF = doc(db, 'farm_data', 'production');
 const MEMBERS_DOC_REF = doc(db, 'farm_data', 'members');
 const DELIVERED_DOC_REF = doc(db, 'farm_data', 'delivered');
+const WEEKLY_GOALS_REF = doc(db, 'farm_data', 'weekly_goals'); // ✅ NOVO: Metas manuais
 const HISTORY_COLLECTION_REF = collection(db, 'farm_history');
 
-// --- Receitas (MATERIAIS NECESSÁRIOS) ---
+// --- Receitas ATUALIZADAS ---
 const RECIPES = {
   Colete: { Borracha: 10, "Plástico": 10, Alumínio: 20, Ferro: 20, Tecido: 1 },
-  Algema: { Borracha: 20, "Plástico": 20, Alumínio: 25, Cobre: 25, Ferro: 30 },
+  Algema: { Borracha: 20, "Plástico": 20, Alumínio: 25, Cobre: 15, Ferro: 25 }, // ✅ CORRIGIDO
   Capuz: { Borracha: 10, "Plástico": 10, Tecido: 1 },
   "Flipper MK3": { Alumínio: 25, Ferro: 25, Cobre: 25, "Emb. Plástica": 25, Titânio: 1 }
 };
@@ -47,11 +48,12 @@ const MATERIAL_ICONS = {
   'Tecido': '👕'
 };
 
-// --- Hooks de Sincronização e Estado ---
+// --- Hooks de Sincronização e Estado ATUALIZADO ---
 const useSharedData = () => {
   const [production, setProductionState] = useState({ Colete: '200', Algema: '100', Capuz: '50', "Flipper MK3": '20' });
   const [memberNames, setMemberNamesState] = useState(['Membro 1', 'Membro 2', 'Membro 3']);
   const [delivered, setDeliveredState] = useState({});
+  const [weeklyGoals, setWeeklyGoalsState] = useState({}); // ✅ NOVO: Metas manuais
   const [history, setHistory] = useState([]);
   const [isDbReady, setIsDbReady] = useState(false);
   const [userId, setUserId] = useState(null);
@@ -71,7 +73,7 @@ const useSharedData = () => {
     setupAuth();
   }, []);
 
-  // Efeito 2: Sincronização em Tempo Real
+  // Efeito 2: Sincronização em Tempo Real ATUALIZADO
   useEffect(() => {
     if (!userId) return;
 
@@ -110,6 +112,19 @@ const useSharedData = () => {
       }
     });
 
+    // ✅ NOVO: Listener Metas Manuais
+    const unsubWeeklyGoals = onSnapshot(WEEKLY_GOALS_REF, (docSnap) => {
+      if (docSnap.exists() && docSnap.data().goals) {
+        setWeeklyGoalsState(docSnap.data().goals);
+      } else if (!docSnap.exists()) {
+        const initialGoals = {};
+        MATERIALS.forEach(material => {
+          initialGoals[material] = '0';
+        });
+        setDoc(WEEKLY_GOALS_REF, { goals: initialGoals });
+      }
+    });
+
     // Listener Histórico
     const historyQuery = query(HISTORY_COLLECTION_REF, orderBy("date", "desc"));
     const unsubHistory = onSnapshot(historyQuery, (snapshot) => {
@@ -123,11 +138,12 @@ const useSharedData = () => {
       unsubProduction();
       unsubMembers();
       unsubDelivered();
+      unsubWeeklyGoals();
       unsubHistory();
     };
   }, [userId]);
 
-  // Funções de Escrita
+  // Funções de Escrita ATUALIZADAS
   const updateProduction = useCallback((newProduction) => {
     updateDoc(PRODUCTION_DOC_REF, { production: newProduction });
   }, []);
@@ -140,10 +156,22 @@ const useSharedData = () => {
     updateDoc(DELIVERED_DOC_REF, { delivered: newDelivered });
   }, []);
 
-  return { production, updateProduction, memberNames, updateMemberNames, delivered, updateDelivered, history, isDbReady };
+  // ✅ NOVO: Atualizar metas manuais
+  const updateWeeklyGoals = useCallback((newGoals) => {
+    updateDoc(WEEKLY_GOALS_REF, { goals: newGoals });
+  }, []);
+
+  return { 
+    production, updateProduction, 
+    memberNames, updateMemberNames, 
+    delivered, updateDelivered, 
+    weeklyGoals, updateWeeklyGoals, // ✅ NOVO
+    history, 
+    isDbReady 
+  };
 };
 
-// --- Funções de Cálculo ---
+// --- Funções de Cálculo ATUALIZADAS ---
 function sumMaterials(production) {
   const totals = {};
   MATERIALS.forEach(material => {
@@ -165,13 +193,14 @@ function ceilDivide(a, b) {
   return Math.ceil(a / b);
 }
 
-function calculateRanking(memberNames, perMember, delivered) {
-  if (memberNames.length === 0 || Object.keys(perMember).length === 0) return [];
+// ✅ FUNÇÃO ATUALIZADA: Agora usa metas manuais (weeklyGoals) em vez de perMember
+function calculateRanking(memberNames, weeklyGoals, delivered) {
+  if (memberNames.length === 0 || Object.keys(weeklyGoals).length === 0) return [];
   return memberNames.map((name, index) => {
     let totalTarget = 0;
     let totalDelivered = 0;
-    Object.keys(perMember).forEach(material => {
-      const target = perMember[material] || 0;
+    Object.keys(weeklyGoals).forEach(material => {
+      const target = Number(weeklyGoals[material]) || 0;
       const deliveredQty = Number(delivered[material]?.[index]) || 0;
       totalTarget += target;
       totalDelivered += deliveredQty;
@@ -186,13 +215,45 @@ function calculateRanking(memberNames, perMember, delivered) {
   }).sort((a, b) => b.pct - a.pct);
 }
 
+// ✅ NOVA FUNÇÃO: Calcular resumo semanal para histórico
+const calculateWeeklySummary = (memberIndex, weeklyGoals, delivered) => {
+  let materialsCompleted = 0;
+  let totalProgress = 0;
+  let totalPossibleProgress = 0;
+  
+  MATERIALS.forEach(material => {
+    const goal = Number(weeklyGoals[material]) || 0;
+    const deliveredQty = Number(delivered[material]?.[memberIndex]) || 0;
+    const progress = goal > 0 ? Math.min(100, (deliveredQty / goal) * 100) : 0;
+    
+    if (goal > 0) {
+      totalPossibleProgress += 100;
+      totalProgress += progress;
+      if (deliveredQty >= goal) materialsCompleted++;
+    }
+  });
+
+  const overallProgress = totalPossibleProgress > 0 ? Math.round((totalProgress / totalPossibleProgress)) : 0;
+  const materialsWithGoals = MATERIALS.filter(m => Number(weeklyGoals[m]) > 0).length;
+
+  return {
+    materialsCompleted,
+    materialsWithGoals,
+    overallProgress,
+    totalDelivered: Object.keys(delivered).reduce((sum, material) => 
+      sum + (Number(delivered[material]?.[memberIndex]) || 0), 0)
+  };
+};
+
 // --- Componente de Tabs Melhorado ---
 function Tabs({ tabs, activeTab, setActiveTab }) {
   const icons = {
-    'Configuração e Metas': '⚙️',
+    'Calculadora de Produção': '🧮',
+    'Metas Manuais': '🎯', // ✅ NOVA ABA
     'Controle de Entregas': '📦', 
     'Resumo e Status': '📈',
-    'Ranking e Histórico': '🏆',
+    'Histórico Mensal': '📊', // ✅ NOVA ABA
+    'Ranking': '🏆',
     'Gerenciar Membros': '👥'
   };
   
@@ -218,16 +279,27 @@ function Tabs({ tabs, activeTab, setActiveTab }) {
   );
 }
 
-// --- Componente Principal ---
+// --- Componente Principal ATUALIZADO ---
 function FarmDashboard() {
-  const TABS = ['Configuração e Metas', 'Controle de Entregas', 'Resumo e Status', 'Ranking e Histórico', 'Gerenciar Membros'];
-  const { production, updateProduction, memberNames, updateMemberNames, delivered, updateDelivered, history, isDbReady } = useSharedData();
+  // ✅ ABAS ATUALIZADAS
+  const TABS = ['Calculadora de Produção', 'Metas Manuais', 'Controle de Entregas', 'Resumo e Status', 'Histórico Mensal', 'Ranking', 'Gerenciar Membros'];
+  
+  const { 
+    production, updateProduction, 
+    memberNames, updateMemberNames, 
+    delivered, updateDelivered, 
+    weeklyGoals, updateWeeklyGoals, // ✅ NOVO
+    history, 
+    isDbReady 
+  } = useSharedData();
+
   const [activeTab, setActiveTab] = useState('Controle de Entregas');
   const [viewingMemberIndex, setViewingMemberIndex] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [expandedMonths, setExpandedMonths] = useState({}); // ✅ NOVO: Controle de accordion
   const memberCount = memberNames.length;
 
-  // Cálculos Memoizados
+  // Cálculos Memoizados ATUALIZADOS
   const totals = useMemo(() => sumMaterials(production), [production]);
   const perMember = useMemo(() => {
     if(memberCount === 0) return {};
@@ -238,7 +310,8 @@ function FarmDashboard() {
     return r;
   }, [totals, memberCount]);
   
-  const currentRanking = useMemo(() => calculateRanking(memberNames, perMember, delivered), [memberNames, perMember, delivered]);
+  // ✅ ATUALIZADO: Agora usa weeklyGoals em vez de perMember
+  const currentRanking = useMemo(() => calculateRanking(memberNames, weeklyGoals, delivered), [memberNames, weeklyGoals, delivered]);
 
   // Materiais filtrados para busca
   const filteredMaterials = useMemo(() => {
@@ -246,6 +319,19 @@ function FarmDashboard() {
       material.toLowerCase().includes(searchTerm.toLowerCase())
     );
   }, [searchTerm]);
+
+  // ✅ NOVO: Agrupar histórico por mês
+  const historyByMonth = useMemo(() => {
+    const grouped = {};
+    history.forEach(week => {
+      const monthKey = week.monthYear || 'Sem Data';
+      if (!grouped[monthKey]) {
+        grouped[monthKey] = [];
+      }
+      grouped[monthKey].push(week);
+    });
+    return grouped;
+  }, [history]);
 
   // Efeito de Ajuste da Estrutura 'delivered'
   useEffect(() => {
@@ -289,42 +375,66 @@ function FarmDashboard() {
     }
   }, [delivered, memberCount, updateDelivered]);
 
+  // ✅ NOVA FUNÇÃO: Atualizar metas manuais
+  const handleUpdateWeeklyGoal = useCallback((material, value) => {
+    const sanitizedValue = value === '' || (!isNaN(Number(value)) && Number(value) >= 0) ? value : weeklyGoals[material];
+    updateWeeklyGoals({...weeklyGoals, [material]: sanitizedValue});
+  }, [weeklyGoals, updateWeeklyGoals]);
+
+  // ✅ NOVA FUNÇÃO: Toggle accordion de meses
+  const toggleMonth = useCallback((monthKey) => {
+    setExpandedMonths(prev => ({
+      ...prev,
+      [monthKey]: !prev[monthKey]
+    }));
+  }, []);
+
+  // ✅ NOVA FUNÇÃO: Toggle accordion de semanas
+  const [expandedWeeks, setExpandedWeeks] = useState({});
+  const toggleWeek = useCallback((weekId) => {
+    setExpandedWeeks(prev => ({
+      ...prev,
+      [weekId]: !prev[weekId]
+    }));
+  }, []);
+
   // FUNÇÕES AUXILIARES
   const getMaterialTotalDelivered = useCallback((material) => {
     return (delivered[material] || []).reduce((a,b) => a + (Number(b) || 0), 0);
   }, [delivered]);
 
+  // ✅ ATUALIZADA: Agora usa weeklyGoals em vez de perMember
   const getStatusForMemberDelivery = useCallback((material, memberIndex) => {
-    const memberTarget = perMember[material] || 0;
-    const memberDelivered = Number(delivered[material]?.[memberIndex]) || 0;
-    if(memberTarget === 0) return {label:"N/A", color:"from-gray-400 to-gray-500", bgColor: "bg-gray-400"};
-    if(memberDelivered >= memberTarget) return {label:"Atingida", color:"from-green-500 to-emerald-600", bgColor: "bg-green-500"};
-    if(memberDelivered >= memberTarget * 0.5) return {label:"Parcial", color:"from-amber-400 to-orange-500", bgColor: "bg-amber-500"};
+    const target = Number(weeklyGoals[material]) || 0;
+    const deliveredQty = Number(delivered[material]?.[memberIndex]) || 0;
+    if(target === 0) return {label:"N/A", color:"from-gray-400 to-gray-500", bgColor: "bg-gray-400"};
+    if(deliveredQty >= target) return {label:"Atingida", color:"from-green-500 to-emerald-600", bgColor: "bg-green-500"};
+    if(deliveredQty >= target * 0.5) return {label:"Parcial", color:"from-amber-400 to-orange-500", bgColor: "bg-amber-500"};
     return {label:"Pendente", color:"from-red-400 to-red-600", bgColor: "bg-red-500"};
-  }, [perMember, delivered]);
+  }, [weeklyGoals, delivered]);
 
   const getStatusForTotalDelivery = useCallback((material) => {
     const deliveredTot = getMaterialTotalDelivered(material);
-    const targetTotal = totals[material] || 0;
+    const targetTotal = Number(weeklyGoals[material]) || 0; // ✅ ATUALIZADO
     if(deliveredTot >= targetTotal) return {label:"Atingida", color:"from-green-500 to-emerald-600", bgColor: "bg-green-500"};
     if(deliveredTot >= targetTotal * 0.5) return {label:"Parcial", color:"from-amber-400 to-orange-500", bgColor: "bg-amber-500"};
     return {label:"Pendente", color:"from-red-400 to-red-600", bgColor: "bg-red-500"};
-  }, [getMaterialTotalDelivered, totals]);
+  }, [getMaterialTotalDelivered, weeklyGoals]);
 
   const getMemberTotalDelivered = useCallback((memberIndex) => {
     return Object.keys(delivered).reduce((sum, material) => sum + (Number(delivered[material]?.[memberIndex]) || 0), 0);
   }, [delivered]);
 
-  // Função para Fechar o Mês
+  // ✅ FUNÇÃO ATUALIZADA: Fechar mês com dados detalhados
   async function handleCloseMonth() {
     if (memberCount === 0) {
       alert("Adicione membros primeiro.");
       return;
     }
     
-    const totalMetas = Object.values(totals).reduce((a,b) => a + (Number(b) || 0), 0);
+    const totalMetas = Object.values(weeklyGoals).reduce((a,b) => a + (Number(b) || 0), 0);
     if (totalMetas === 0) {
-      alert("Defina metas na aba 'Configuração' antes de fechar o mês.");
+      alert("Defina metas na aba 'Metas Manuais' antes de fechar o mês.");
       return;
     }
 
@@ -333,12 +443,33 @@ function FarmDashboard() {
     }
 
     const now = new Date();
+    const weekNumber = Math.ceil(now.getDate() / 7);
     const monthYear = now.toLocaleString('pt-BR', { month: 'long', year: 'numeric' });
+    const weekLabel = `Semana ${weekNumber} - ${monthYear.charAt(0).toUpperCase() + monthYear.slice(1)}`;
     
+    // ✅ CALCULAR RESUMOS DETALHADOS
+    const memberSummaries = memberNames.map((member, index) => {
+      const summary = calculateWeeklySummary(index, weeklyGoals, delivered);
+      return {
+        name: member,
+        ...summary,
+        details: MATERIALS.map(material => ({
+          material,
+          goal: Number(weeklyGoals[material]) || 0,
+          delivered: Number(delivered[material]?.[index]) || 0,
+          completed: Number(delivered[material]?.[index]) >= Number(weeklyGoals[material])
+        }))
+      };
+    });
+
     const monthData = {
-      label: monthYear.charAt(0).toUpperCase() + monthYear.slice(1),
+      label: weekLabel,
+      weekNumber: weekNumber,
+      monthYear: monthYear,
       date: serverTimestamp(),
-      members: currentRanking.map(r => ({...r})),
+      members: memberSummaries, // ✅ AGORA COM DADOS DETALHADOS
+      goals: {...weeklyGoals},
+      totalDelivered: Object.keys(delivered).reduce((sum, mat) => sum + getMaterialTotalDelivered(mat), 0)
     };
 
     try {
@@ -398,15 +529,15 @@ function FarmDashboard() {
     );
   }
 
-  // --- COMPONENTES DE CONTEÚDO MELHORADOS ---
+  // --- COMPONENTES DE CONTEÚDO ATUALIZADOS ---
 
   // Componente de Visualização de Progresso Individual
   const MemberProgressViewer = ({ memberIndex }) => {
     const memberName = memberNames[memberIndex];
     if (memberIndex === null || memberIndex >= memberNames.length) return null;
     
-    const individualProgress = Object.keys(perMember).reduce((acc, material) => {
-      const target = perMember[material] || 0;
+    const individualProgress = Object.keys(weeklyGoals).reduce((acc, material) => {
+      const target = Number(weeklyGoals[material]) || 0;
       const deliveredQty = Number(delivered[material]?.[memberIndex]) || 0;
       acc.target += target;
       acc.delivered += deliveredQty;
@@ -447,10 +578,11 @@ function FarmDashboard() {
         <div>
           <h4 className="font-semibold text-gray-700 mb-4 text-lg">📦 Status por Material:</h4>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {Object.keys(perMember).map(material => {
+            {MATERIALS.map(material => {
               const status = getStatusForMemberDelivery(material, memberIndex);
               const deliveredQty = Number(delivered[material]?.[memberIndex]) || 0;
-              const progressPct = perMember[material] > 0 ? Math.min(100, (deliveredQty / perMember[material]) * 100) : 0;
+              const goal = Number(weeklyGoals[material]) || 0;
+              const progressPct = goal > 0 ? Math.min(100, (deliveredQty / goal) * 100) : 0;
               
               return (
                 <div key={material} className="bg-gradient-to-br from-white to-gray-50 rounded-2xl p-4 border border-gray-200 shadow-sm hover:shadow-md transition-all duration-300">
@@ -478,7 +610,7 @@ function FarmDashboard() {
                   </div>
                   
                   <div className="flex justify-between items-center text-sm">
-                    <span className="text-gray-600">{deliveredQty} / {perMember[material]}</span>
+                    <span className="text-gray-600">{deliveredQty} / {goal}</span>
                     <span className="text-lg">
                       {status.label === "Atingida" ? "✅" : status.label === "Parcial" ? "🟡" : "❌"}
                     </span>
@@ -492,75 +624,130 @@ function FarmDashboard() {
     );
   };
 
-  // Conteúdo da Aba 1: Configuração e Metas
-  const ConfigContent = (
+  // Conteúdo da Aba 1: Calculadora de Produção
+  const CalculatorContent = (
     <div className="bg-white/80 backdrop-blur-lg rounded-3xl shadow-2xl p-8 border border-white/20">
       <div className="flex items-center gap-3 mb-8">
         <div className="p-3 bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl">
-          <span className="text-2xl">⚙️</span>
+          <span className="text-2xl">🧮</span>
         </div>
         <div>
-          <h2 className="text-3xl font-bold text-gray-800">Configuração de Produção</h2>
-          <p className="text-gray-600">Defina as metas de produção para calcular as necessidades de materiais</p>
+          <h2 className="text-3xl font-bold text-gray-800">Calculadora de Produção</h2>
+          <p className="text-gray-600">Calcule os materiais necessários para sua produção semanal</p>
         </div>
       </div>
-      
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div className="space-y-6">
-          <h3 className="text-xl font-bold text-gray-800 mb-4">🎯 Metas de Produção</h3>
-          {Object.keys(production).map(prod => (
-            <div key={prod} className="bg-gradient-to-br from-white to-blue-50 rounded-2xl p-6 border border-blue-200 shadow-sm hover:shadow-md transition-all duration-300">
-              <div className="flex items-center justify-between">
-                <span className="font-semibold text-gray-700 text-lg">{prod}</span>
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={production[prod]}
-                    onChange={(e) => handleUpdateProduction(prod, e.target.value)}
-                    className="w-32 border-2 border-blue-200 rounded-xl px-4 py-3 text-right font-bold text-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200"
-                  />
-                  <div className="absolute inset-y-0 left-0 flex items-center pl-3">
-                    <span className="text-gray-400">Qtd:</span>
+        {/* Entrada de Produção */}
+        <div className="bg-gradient-to-br from-blue-50 to-indigo-100 rounded-2xl p-6 border border-blue-200">
+          <h3 className="text-xl font-bold text-gray-800 mb-6">🎯 Meta de Produção Semanal</h3>
+          <div className="space-y-4">
+            {Object.keys(production).map(product => (
+              <div key={product} className="bg-white rounded-xl p-4 border border-blue-200 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-gray-700">{product}</span>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={production[product]}
+                      onChange={(e) => handleUpdateProduction(product, e.target.value)}
+                      className="w-24 border-2 border-blue-200 rounded-lg px-3 py-2 text-right font-bold focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                    />
+                    <div className="absolute inset-y-0 left-0 flex items-center pl-3">
+                      <span className="text-gray-400 text-sm">Qtd:</span>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
 
-        <div className="bg-gradient-to-br from-blue-50 to-indigo-100 rounded-2xl p-6 border border-blue-200">
-          <h3 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-            <span>👥</span>
-            Metas por Pessoa ({memberCount} {memberCount === 1 ? 'Membro' : 'Membros'})
-          </h3>
-          {memberCount > 0 ? (
-            <div className="grid grid-cols-1 gap-4 max-h-96 overflow-y-auto pr-2">
-              {Object.keys(perMember).map(material => (
-                <div key={material} className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm hover:shadow-md transition-all duration-300">
+        {/* Materiais Necessários */}
+        <div className="bg-gradient-to-br from-green-50 to-emerald-100 rounded-2xl p-6 border border-green-200">
+          <h3 className="text-xl font-bold text-gray-800 mb-6">📦 Materiais Necessários</h3>
+          <div className="space-y-3 max-h-80 overflow-y-auto">
+            {MATERIALS.map(material => {
+              const needed = totals[material] || 0;
+              return (
+                <div key={material} className="bg-white rounded-lg p-3 border border-green-200">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <span className="text-2xl">{MATERIAL_ICONS[material]}</span>
-                      <span className="font-semibold text-gray-800">{material}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xl">{MATERIAL_ICONS[material]}</span>
+                      <span className="font-semibold">{material}</span>
                     </div>
-                    <span className="bg-blue-500 text-white px-3 py-1 rounded-lg font-bold">
-                      {perMember[material]}
+                    <span className="bg-green-500 text-white px-3 py-1 rounded-lg font-bold">
+                      {needed}
                     </span>
                   </div>
                 </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-8">
-              <div className="text-6xl mb-4">👥</div>
-              <p className="text-amber-600 font-semibold">Adicione membros para calcular as metas!</p>
-            </div>
-          )}
+              );
+            })}
+          </div>
         </div>
       </div>
     </div>
   );
 
-  // Conteúdo da Aba 2: Controle de Entregas
+  // ✅ NOVA ABA: Metas Manuais
+  const ManualGoalsContent = (
+    <div className="bg-white/80 backdrop-blur-lg rounded-3xl shadow-2xl p-8 border border-white/20">
+      <div className="flex items-center gap-3 mb-8">
+        <div className="p-3 bg-gradient-to-r from-orange-500 to-red-600 rounded-2xl">
+          <span className="text-2xl">🎯</span>
+        </div>
+        <div>
+          <h2 className="text-3xl font-bold text-gray-800">Metas Manuais de Farm</h2>
+          <p className="text-gray-600">Defina as quantidades de cada material para farm semanal</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        {MATERIALS.map(material => (
+          <div key={material} className="bg-gradient-to-br from-white to-gray-50 rounded-2xl p-6 border border-gray-200 shadow-lg hover:shadow-xl transition-all duration-300">
+            <div className="flex items-center gap-3 mb-4">
+              <span className="text-3xl">{MATERIAL_ICONS[material]}</span>
+              <div>
+                <h3 className="font-bold text-gray-800 text-lg">{material}</h3>
+                <p className="text-sm text-gray-600">Meta semanal</p>
+              </div>
+            </div>
+            
+            <div className="relative mb-4">
+              <input
+                type="text"
+                value={weeklyGoals[material] || '0'}
+                onChange={(e) => handleUpdateWeeklyGoal(material, e.target.value)}
+                className="w-full border-2 border-blue-200 rounded-xl px-4 py-3 text-center font-bold text-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200"
+                placeholder="0"
+              />
+              <div className="absolute inset-y-0 right-0 flex items-center pr-3">
+                <span className="text-gray-400">unid.</span>
+              </div>
+            </div>
+            
+            <div className="text-center">
+              <div className="text-sm text-gray-600">Entregue esta semana:</div>
+              <div className="text-xl font-bold text-green-600">
+                {getMaterialTotalDelivered(material)}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-8 text-center">
+        <button
+          onClick={handleCloseMonth}
+          className="px-8 py-4 bg-gradient-to-r from-purple-500 to-pink-600 text-white font-bold rounded-2xl hover:from-purple-600 hover:to-pink-700 transition-all duration-300 transform hover:scale-105 shadow-lg"
+        >
+          🗓️ Fechar Mês e Zerar Entregas
+        </button>
+      </div>
+    </div>
+  );
+
+  // Conteúdo da Aba 3: Controle de Entregas (ATUALIZADO para usar metas manuais)
   const ControlContent = (
     <div className="bg-white/80 backdrop-blur-lg rounded-3xl shadow-2xl p-8 border border-white/20">
       <div className="flex items-center gap-3 mb-8">
@@ -616,7 +803,7 @@ function FarmDashboard() {
                     Material
                   </th>
                   <th className="p-4 text-center font-bold text-gray-700 text-lg border-b-2 border-gray-300">
-                    Meta / Membro
+                    Meta Semanal
                   </th>
                   {memberNames.map((n, i) => (
                     <th key={i} className="p-4 text-center font-bold text-gray-700 text-lg border-b-2 border-gray-300 bg-gradient-to-b from-indigo-100 to-indigo-200">
@@ -631,48 +818,66 @@ function FarmDashboard() {
                       </div>
                     </th>
                   ))}
+                  <th className="p-4 text-center font-bold text-gray-700 text-lg border-b-2 border-gray-300 bg-gradient-to-b from-green-100 to-green-200">
+                    Total
+                  </th>
                 </tr>
               </thead>
               <tbody>
-                {filteredMaterials.map(material => (
-                  <tr key={material} className="hover:bg-gray-50/80 transition-colors duration-200 border-b border-gray-200">
-                    <td className="p-4 font-semibold text-gray-800">
-                      <div className="flex items-center gap-3">
-                        <span className="text-2xl">{MATERIAL_ICONS[material]}</span>
-                        {material}
-                      </div>
-                    </td>
-                    <td className="p-4 text-center bg-gradient-to-b from-blue-50 to-blue-100 font-bold text-blue-700 text-lg">
-                      {perMember[material] || 0}
-                    </td>
-                    {memberNames.map((_, mi) => {
-                      const status = getStatusForMemberDelivery(material, mi);
-                      return (
-                        <td key={mi} className="p-3">
-                          <div className="relative">
-                            <input
-                              type="text"
-                              value={delivered[material]?.[mi] || ''}
-                              onChange={(e) => handleUpdateDelivered(material, mi, e.target.value)}
-                              className={`w-full text-right px-4 py-3 border-2 rounded-xl font-semibold transition-all duration-200 focus:ring-2 focus:ring-opacity-50 ${
-                                status.label === "Atingida" 
-                                  ? "border-green-300 bg-green-50 focus:border-green-500 focus:ring-green-200" 
-                                  : status.label === "Parcial"
-                                  ? "border-amber-300 bg-amber-50 focus:border-amber-500 focus:ring-amber-200"
-                                  : "border-gray-300 bg-white focus:border-blue-500 focus:ring-blue-200"
-                              }`}
-                            />
-                            {delivered[material]?.[mi] && (
-                              <div className={`absolute -top-2 -right-2 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white ${status.bgColor}`}>
-                                {status.label === "Atingida" ? "✓" : status.label === "Parcial" ? "~" : "!"}
-                              </div>
-                            )}
-                          </div>
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
+                {filteredMaterials.map(material => {
+                  const totalDelivered = getMaterialTotalDelivered(material);
+                  const goal = Number(weeklyGoals[material]) || 0;
+                  const progress = goal > 0 ? Math.min(100, (totalDelivered / goal) * 100) : 0;
+                  
+                  return (
+                    <tr key={material} className="hover:bg-gray-50/80 transition-colors duration-200 border-b border-gray-200">
+                      <td className="p-4 font-semibold text-gray-800">
+                        <div className="flex items-center gap-3">
+                          <span className="text-2xl">{MATERIAL_ICONS[material]}</span>
+                          {material}
+                        </div>
+                      </td>
+                      <td className="p-4 text-center bg-gradient-to-b from-blue-50 to-blue-100 font-bold text-blue-700 text-lg">
+                        {goal}
+                      </td>
+                      {memberNames.map((_, mi) => {
+                        const status = getStatusForMemberDelivery(material, mi);
+                        return (
+                          <td key={mi} className="p-3">
+                            <div className="relative">
+                              <input
+                                type="text"
+                                value={delivered[material]?.[mi] || ''}
+                                onChange={(e) => handleUpdateDelivered(material, mi, e.target.value)}
+                                className={`w-full text-right px-4 py-3 border-2 rounded-xl font-semibold transition-all duration-200 focus:ring-2 focus:ring-opacity-50 ${
+                                  status.label === "Atingida" 
+                                    ? "border-green-300 bg-green-50 focus:border-green-500 focus:ring-green-200" 
+                                    : status.label === "Parcial"
+                                    ? "border-amber-300 bg-amber-50 focus:border-amber-500 focus:ring-amber-200"
+                                    : "border-gray-300 bg-white focus:border-blue-500 focus:ring-blue-200"
+                                }`}
+                              />
+                              {delivered[material]?.[mi] && (
+                                <div className={`absolute -top-2 -right-2 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white ${status.bgColor}`}>
+                                  {status.label === "Atingida" ? "✓" : status.label === "Parcial" ? "~" : "!"}
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                        );
+                      })}
+                      <td className="p-4 text-center font-bold">
+                        <div className={`px-3 py-2 rounded-lg ${
+                          progress >= 100 ? "bg-green-500 text-white" :
+                          progress >= 50 ? "bg-amber-500 text-white" :
+                          "bg-red-500 text-white"
+                        }`}>
+                          {totalDelivered}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
                 <tr className="bg-gradient-to-r from-gray-100 to-gray-200 font-bold">
                   <td className="p-4 text-gray-800 text-lg">📊 TOTAL ENTREGUE</td>
                   <td className="p-4 text-center text-gray-600">-</td>
@@ -681,6 +886,9 @@ function FarmDashboard() {
                       {getMemberTotalDelivered(mi)}
                     </td>
                   ))}
+                  <td className="p-4 text-center bg-gradient-to-b from-green-200 to-green-300 text-green-800 text-lg font-bold">
+                    {Object.keys(delivered).reduce((sum, mat) => sum + getMaterialTotalDelivered(mat), 0)}
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -690,7 +898,7 @@ function FarmDashboard() {
     </div>
   );
 
-  // Conteúdo da Aba 3: Resumo e Status
+  // Conteúdo da Aba 4: Resumo e Status (ATUALIZADO para usar metas manuais)
   const StatusContent = (
     <div className="bg-white/80 backdrop-blur-lg rounded-3xl shadow-2xl p-8 border border-white/20">
       <div className="flex items-center gap-3 mb-8">
@@ -706,7 +914,7 @@ function FarmDashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {MATERIALS.map(material => {
           const deliveredTot = getMaterialTotalDelivered(material);
-          const targetTotal = totals[material] || 0;
+          const targetTotal = Number(weeklyGoals[material]) || 0;
           const pct = targetTotal > 0 ? Math.min(100, Math.round((deliveredTot / targetTotal) * 100)) : 0;
           const status = getStatusForTotalDelivery(material);
           
@@ -749,119 +957,209 @@ function FarmDashboard() {
     </div>
   );
 
-  // Conteúdo da Aba 4: Ranking e Histórico
-  const RankingAndHistoryContent = (
+  // ✅ NOVA ABA: Histórico Mensal
+  const MonthlyHistoryContent = (
+    <div className="bg-white/80 backdrop-blur-lg rounded-3xl shadow-2xl p-8 border border-white/20">
+      <div className="flex items-center gap-3 mb-8">
+        <div className="p-3 bg-gradient-to-r from-purple-500 to-pink-600 rounded-2xl">
+          <span className="text-2xl">📊</span>
+        </div>
+        <div>
+          <h2 className="text-3xl font-bold text-gray-800">Histórico Mensal</h2>
+          <p className="text-gray-600">Desempenho detalhado por mês e semana</p>
+        </div>
+      </div>
+
+      {Object.keys(historyByMonth).length === 0 ? (
+        <div className="text-center py-12">
+          <div className="text-6xl mb-4">📅</div>
+          <h3 className="text-2xl font-bold text-gray-700 mb-2">Nenhum Histórico</h3>
+          <p className="text-gray-600 mb-6">Feche meses para começar o histórico</p>
+          <button
+            onClick={() => setActiveTab('Metas Manuais')}
+            className="px-8 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-2xl font-semibold hover:from-blue-600 hover:to-purple-700 transition-all duration-300 transform hover:scale-105"
+          >
+            🗓️ Fechar Primeiro Mês
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {Object.entries(historyByMonth).map(([monthKey, weeks]) => (
+            <div key={monthKey} className="bg-gradient-to-br from-blue-50 to-indigo-100 rounded-2xl p-6 border border-blue-200">
+              {/* Cabeçalho do Mês */}
+              <button
+                onClick={() => toggleMonth(monthKey)}
+                className="w-full flex items-center justify-between text-left mb-4"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl">📅</span>
+                  <h3 className="text-xl font-bold text-gray-800">{monthKey}</h3>
+                </div>
+                <span className="text-2xl transform transition-transform duration-300">
+                  {expandedMonths[monthKey] ? '▼' : '▶'}
+                </span>
+              </button>
+
+              {/* Conteúdo do Mês (expandível) */}
+              {expandedMonths[monthKey] && (
+                <div className="space-y-4">
+                  {weeks.map((week) => (
+                    <div key={week.id} className="bg-white rounded-xl p-4 border border-blue-200">
+                      {/* Cabeçalho da Semana */}
+                      <button
+                        onClick={() => toggleWeek(week.id)}
+                        className="w-full flex items-center justify-between text-left mb-3"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg">📋</span>
+                          <h4 className="font-bold text-gray-800">{week.label}</h4>
+                        </div>
+                        <span className="transform transition-transform duration-300">
+                          {expandedWeeks[week.id] ? '▼' : '▶'}
+                        </span>
+                      </button>
+
+                      {/* Conteúdo da Semana (expandível) */}
+                      {expandedWeeks[week.id] && (
+                        <div className="space-y-4">
+                          {/* Resumo dos Membros */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {week.members.map((member, memberIndex) => (
+                              <div key={memberIndex} className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                                <div className="flex items-center justify-between mb-2">
+                                  <span className="font-semibold text-gray-800">{member.name}</span>
+                                  <span className={`px-2 py-1 rounded text-xs font-bold ${
+                                    member.overallProgress >= 100 ? 'bg-green-500 text-white' :
+                                    member.overallProgress >= 80 ? 'bg-amber-500 text-white' :
+                                    member.overallProgress >= 50 ? 'bg-orange-500 text-white' :
+                                    'bg-red-500 text-white'
+                                  }`}>
+                                    {member.overallProgress}%
+                                  </span>
+                                </div>
+                                
+                                <div className="mb-2">
+                                  <div className="flex justify-between text-xs text-gray-600 mb-1">
+                                    <span>Progresso</span>
+                                    <span>{member.overallProgress}%</span>
+                                  </div>
+                                  <div className="w-full bg-gray-200 rounded-full h-2">
+                                    <div 
+                                      className={`h-2 rounded-full transition-all duration-1000 ${
+                                        member.overallProgress >= 100 ? 'bg-green-500' :
+                                        member.overallProgress >= 80 ? 'bg-amber-500' :
+                                        member.overallProgress >= 50 ? 'bg-orange-500' :
+                                        'bg-red-500'
+                                      }`}
+                                      style={{width: `${member.overallProgress}%`}}
+                                    ></div>
+                                  </div>
+                                </div>
+                                
+                                <div className="text-xs text-gray-600">
+                                  {member.materialsCompleted}/{member.materialsWithGoals} materiais • {member.totalDelivered} unid.
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+
+                          {/* Detalhes dos Materiais */}
+                          <details className="mt-3">
+                            <summary className="cursor-pointer text-sm text-blue-600 font-semibold hover:text-blue-800">
+                              📋 Ver detalhes dos materiais
+                            </summary>
+                            <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-2">
+                              {MATERIALS.map(material => {
+                                const goal = week.goals[material] || 0;
+                                const totalDelivered = week.members.reduce((sum, member) => {
+                                  const materialData = member.details.find(d => d.material === material);
+                                  return sum + (materialData?.delivered || 0);
+                                }, 0);
+                                return goal > 0 ? (
+                                  <div key={material} className="bg-white rounded p-2 border border-gray-300 text-xs">
+                                    <div className="font-semibold">{material}</div>
+                                    <div>{totalDelivered}/{goal}</div>
+                                  </div>
+                                ) : null;
+                              })}
+                            </div>
+                          </details>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
+  // Conteúdo da Aba 6: Ranking (ATUALIZADO para usar metas manuais)
+  const RankingContent = (
     <div className="bg-white/80 backdrop-blur-lg rounded-3xl shadow-2xl p-8 border border-white/20">
       <div className="flex items-center gap-3 mb-8">
         <div className="p-3 bg-gradient-to-r from-yellow-500 to-amber-600 rounded-2xl">
           <span className="text-2xl">🏆</span>
         </div>
         <div>
-          <h2 className="text-3xl font-bold text-gray-800">Ranking e Histórico</h2>
-          <p className="text-gray-600">Desempenho dos membros e histórico mensal</p>
+          <h2 className="text-3xl font-bold text-gray-800">Ranking Semanal</h2>
+          <p className="text-gray-600">Desempenho dos membros baseado nas metas</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Ranking Atual */}
-        <div className="bg-gradient-to-br from-amber-50 to-yellow-100 rounded-2xl p-6 border border-amber-200">
-          <h3 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-            <span>📊</span>
-            Ranking Atual
-          </h3>
-          
-          {currentRanking.length === 0 || memberCount === 0 || Object.values(totals).every(t => Number(t) === 0) ? (
-            <div className="text-center py-8">
-              <div className="text-6xl mb-4">📈</div>
-              <p className="text-amber-600 font-semibold">Configure metas e adicione membros para ver o ranking</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {currentRanking.map((item, idx) => (
-                <div key={idx} className="bg-white rounded-xl p-4 border border-amber-200 shadow-sm hover:shadow-md transition-all duration-300">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold ${
-                        idx === 0 ? 'bg-gradient-to-r from-yellow-400 to-amber-500' :
-                        idx === 1 ? 'bg-gradient-to-r from-gray-400 to-gray-500' :
-                        idx === 2 ? 'bg-gradient-to-r from-amber-600 to-orange-500' :
-                        'bg-gradient-to-r from-blue-400 to-blue-500'
-                      }`}>
-                        {idx + 1}
-                      </div>
-                      <span className="font-semibold text-gray-800">{item.name}</span>
-                    </div>
-                    <div className="text-right">
-                      <div className="font-bold text-lg">{item.medal.split(' ')[0]}</div>
-                      <div className="text-sm text-gray-600">{item.pct}% concluído</div>
-                    </div>
+      {currentRanking.length === 0 || memberCount === 0 || Object.values(weeklyGoals).every(t => Number(t) === 0) ? (
+        <div className="text-center py-12">
+          <div className="text-6xl mb-4">📈</div>
+          <p className="text-amber-600 font-semibold text-lg">Configure metas e adicione membros para ver o ranking</p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {currentRanking.map((item, idx) => (
+            <div key={idx} className="bg-gradient-to-br from-white to-gray-50 rounded-2xl p-6 border border-amber-200 shadow-lg hover:shadow-xl transition-all duration-300">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-4">
+                  <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg ${
+                    idx === 0 ? 'bg-gradient-to-r from-yellow-400 to-amber-500' :
+                    idx === 1 ? 'bg-gradient-to-r from-gray-400 to-gray-500' :
+                    idx === 2 ? 'bg-gradient-to-r from-amber-600 to-orange-500' :
+                    'bg-gradient-to-r from-blue-400 to-blue-500'
+                  }`}>
+                    {idx + 1}
                   </div>
-                  <div className="mt-3">
-                    <div className="flex justify-between text-sm text-gray-600 mb-1">
-                      <span>{item.totalDelivered} / {item.totalTarget}</span>
-                      <span>{item.pct}%</span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div 
-                        className="bg-gradient-to-r from-green-400 to-blue-500 h-2 rounded-full transition-all duration-1000"
-                        style={{width: `${item.pct}%`}}
-                      ></div>
-                    </div>
+                  <div>
+                    <h3 className="font-bold text-gray-800 text-lg">{item.name}</h3>
+                    <p className="text-sm text-gray-600">{item.medal}</p>
                   </div>
                 </div>
-              ))}
+                <div className="text-right">
+                  <div className="text-2xl font-bold text-gray-800">{item.pct}%</div>
+                  <div className="text-sm text-gray-600">concluído</div>
+                </div>
+              </div>
+              
+              <div className="mb-3">
+                <div className="flex justify-between text-sm text-gray-600 mb-2">
+                  <span>{item.totalDelivered} / {item.totalTarget} unidades</span>
+                  <span>{item.pct}%</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-3">
+                  <div 
+                    className="bg-gradient-to-r from-green-400 to-blue-500 h-3 rounded-full transition-all duration-1000"
+                    style={{width: `${item.pct}%`}}
+                  ></div>
+                </div>
+              </div>
             </div>
-          )}
+          ))}
         </div>
-
-        {/* Ações e Histórico */}
-        <div className="space-y-6">
-          {/* Ação de Fechar Mês */}
-          <div className="bg-gradient-to-br from-red-50 to-pink-100 rounded-2xl p-6 border border-red-200">
-            <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-              <span>🗓️</span>
-              Controle Mensal
-            </h3>
-            <p className="text-gray-600 mb-4">Feche o mês atual para salvar o progresso e reiniciar as entregas</p>
-            <button
-              onClick={handleCloseMonth}
-              disabled={memberCount === 0 || Object.values(totals).every(t => Number(t) === 0)}
-              className="w-full px-6 py-4 bg-gradient-to-r from-red-500 to-pink-600 text-white font-bold rounded-xl hover:from-red-600 hover:to-pink-700 transition-all duration-300 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed transform hover:scale-105"
-            >
-              🗓️ Fechar Mês Atual
-            </button>
-          </div>
-
-          {/* Histórico */}
-          <div className="bg-gradient-to-br from-purple-50 to-indigo-100 rounded-2xl p-6 border border-purple-200">
-            <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-              <span>📚</span>
-              Histórico
-            </h3>
-            {history.length === 0 ? (
-              <div className="text-center py-4">
-                <p className="text-gray-600">Nenhum histórico disponível</p>
-                <p className="text-sm text-gray-500">Feche o mês atual para começar o histórico</p>
-              </div>
-            ) : (
-              <div className="space-y-3 max-h-60 overflow-y-auto pr-2">
-                {history.slice(0, 5).map(monthData => (
-                  <div key={monthData.id} className="bg-white rounded-lg p-3 border border-purple-200">
-                    <div className="font-semibold text-purple-700">{monthData.label}</div>
-                    <div className="text-sm text-gray-600">
-                      {monthData.members.length} membros • {monthData.members[0]?.pct || 0}% melhor
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
+      )}
     </div>
   );
 
-  // Conteúdo da Aba 5: Gerenciar Membros
+  // Conteúdo da Aba 7: Gerenciar Membros
   const MemberContent = (
     <div className="bg-white/80 backdrop-blur-lg rounded-3xl shadow-2xl p-8 border border-white/20">
       <div className="flex items-center gap-3 mb-8">
@@ -977,13 +1275,15 @@ function FarmDashboard() {
     </div>
   );
 
-  // Renderização do Conteúdo
+  // Renderização do Conteúdo ATUALIZADA
   const renderContent = () => {
     switch (activeTab) {
-      case 'Configuração e Metas': return ConfigContent;
+      case 'Calculadora de Produção': return CalculatorContent;
+      case 'Metas Manuais': return ManualGoalsContent;
       case 'Controle de Entregas': return ControlContent;
       case 'Resumo e Status': return StatusContent;
-      case 'Ranking e Histórico': return RankingAndHistoryContent;
+      case 'Histórico Mensal': return MonthlyHistoryContent;
+      case 'Ranking': return RankingContent;
       case 'Gerenciar Membros': return MemberContent;
       default: return ControlContent;
     }
