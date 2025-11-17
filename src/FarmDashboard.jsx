@@ -192,7 +192,7 @@ function ceilDivide(a, b) {
   return Math.ceil(a / b);
 }
 
-// ✅ CORREÇÃO: Função de ranking corrigida
+// ✅ CORREÇÃO COMPLETA: Função de ranking corrigida
 function calculateRanking(memberNames, weeklyGoals, delivered) {
   if (memberNames.length === 0 || Object.keys(weeklyGoals).length === 0) return [];
   
@@ -232,7 +232,7 @@ function calculateRanking(memberNames, weeklyGoals, delivered) {
   }).sort((a, b) => b.pct - a.pct);
 }
 
-// ✅ CORREÇÃO: Função de resumo semanal corrigida
+// ✅ CORREÇÃO COMPLETA: Função de resumo semanal corrigida
 const calculateWeeklySummary = (memberIndex, weeklyGoals, delivered) => {
   let materialsCompleted = 0;
   let totalProgress = 0;
@@ -256,7 +256,7 @@ const calculateWeeklySummary = (memberIndex, weeklyGoals, delivered) => {
 
   // ✅ CORREÇÃO: Cálculo preciso do progresso geral
   const overallProgress = totalPossibleProgress > 0 
-    ? Math.round((totalProgress / totalPossibleProgress) * 100) / 100  // Mantém 2 casas decimais
+    ? Math.round((totalProgress / totalPossibleProgress) * 100) 
     : 0;
 
   const materialsWithGoals = MATERIALS.filter(m => Number(weeklyGoals[m]) > 0).length;
@@ -467,10 +467,41 @@ function FarmDashboard() {
       }
     });
     
-    return totalPossibleProgress > 0 ? Math.round((totalProgress / totalPossibleProgress) * 100) / 100 : 0;
+    return totalPossibleProgress > 0 ? Math.round((totalProgress / totalPossibleProgress)) : 0;
   }, [weeklyGoals, getMaterialTotalDelivered]);
 
-  // Função para Fechar a Semana
+  // ✅ NOVA FUNÇÃO: Calcular produtos entregues baseado nos materiais
+  const calculateProductsDelivered = useCallback((memberIndex = null) => {
+    const products = {};
+    
+    Object.keys(RECIPES).forEach(product => {
+      products[product] = Infinity; // Começa com infinito
+      
+      Object.entries(RECIPES[product]).forEach(([material, required]) => {
+        let deliveredQty;
+        
+        if (memberIndex !== null) {
+          // Para um membro específico
+          deliveredQty = Number(delivered[material]?.[memberIndex]) || 0;
+        } else {
+          // Para o total geral
+          deliveredQty = getMaterialTotalDelivered(material);
+        }
+        
+        const possibleProducts = Math.floor(deliveredQty / required);
+        products[product] = Math.min(products[product], possibleProducts);
+      });
+      
+      // Se ainda é infinito, significa que não tem materiais suficientes
+      if (products[product] === Infinity) {
+        products[product] = 0;
+      }
+    });
+    
+    return products;
+  }, [delivered, getMaterialTotalDelivered]);
+
+  // ✅ CORREÇÃO COMPLETA: Função para Fechar a Semana
   async function handleCloseMonth() {
     if (memberCount === 0) {
       alert("Adicione membros primeiro.");
@@ -492,12 +523,15 @@ function FarmDashboard() {
     const monthYear = now.toLocaleString('pt-BR', { month: 'long', year: 'numeric' });
     const weekLabel = `Semana ${weekNumber} - ${monthYear.charAt(0).toUpperCase() + monthYear.slice(1)}`;
     
-    // Calcular resumos detalhados
+    // ✅ CORREÇÃO: Usar a função corrigida calculateWeeklySummary
     const memberSummaries = memberNames.map((member, index) => {
       const summary = calculateWeeklySummary(index, weeklyGoals, delivered);
+      const productsDelivered = calculateProductsDelivered(index);
+      
       return {
         name: member,
         ...summary,
+        productsDelivered, // ✅ ADICIONADO: Produtos entregues
         details: MATERIALS.map(material => ({
           material,
           goal: Number(weeklyGoals[material]) || 0,
@@ -507,6 +541,8 @@ function FarmDashboard() {
       };
     });
 
+    const totalProductsDelivered = calculateProductsDelivered(); // ✅ ADICIONADO: Produtos totais
+
     const monthData = {
       label: weekLabel,
       weekNumber: weekNumber,
@@ -514,7 +550,8 @@ function FarmDashboard() {
       date: serverTimestamp(),
       members: memberSummaries,
       goals: {...weeklyGoals},
-      totalDelivered: Object.keys(delivered).reduce((sum, mat) => sum + getMaterialTotalDelivered(mat), 0)
+      totalDelivered: Object.keys(delivered).reduce((sum, mat) => sum + getMaterialTotalDelivered(mat), 0),
+      totalProductsDelivered // ✅ ADICIONADO: Produtos totais no histórico
     };
 
     try {
@@ -593,7 +630,9 @@ function FarmDashboard() {
     const percentage = individualProgress.target > 0 
       ? Math.min(100, Math.round((individualProgress.delivered / individualProgress.target) * 100))
       : 0;
-  
+
+    const productsDelivered = calculateProductsDelivered(memberIndex);
+
     return (
       <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
         <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
@@ -628,6 +667,17 @@ function FarmDashboard() {
           </div>
           
           <div className="p-6">
+            {/* ✅ ADICIONADO: Produtos Entregues */}
+            <h3 className="text-xl font-semibold mb-4">🎁 Produtos que Podem Ser Feitos</h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+              {Object.entries(productsDelivered).map(([product, quantity]) => (
+                <div key={product} className="bg-gray-50 rounded-xl p-4 text-center border">
+                  <div className="text-2xl font-bold text-gray-800">{quantity}</div>
+                  <div className="text-gray-600 text-sm">{product}</div>
+                </div>
+              ))}
+            </div>
+
             <h3 className="text-xl font-semibold mb-4">📦 Detalhes por Material</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {MATERIALS.map(material => {
@@ -877,6 +927,19 @@ function FarmDashboard() {
                 </div>
               </div>
 
+              {/* ✅ ADICIONADO: Produtos que Podem Ser Feitos */}
+              <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-6 border border-white/30 mb-8">
+                <h3 className="text-xl font-semibold text-white mb-4">🎁 Produtos que Podem Ser Feitos</h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {Object.entries(calculateProductsDelivered()).map(([product, quantity]) => (
+                    <div key={product} className="bg-white/10 rounded-xl p-4 text-center">
+                      <div className="text-2xl font-bold text-white">{quantity}</div>
+                      <div className="text-white/80 text-sm">{product}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
               {/* Status por Material */}
               <h3 className="text-xl font-semibold text-white mb-4">📊 Status por Material</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -1040,6 +1103,21 @@ function FarmDashboard() {
                                     </div>
                                   </div>
 
+                                  {/* ✅ ADICIONADO: Produtos do Histórico */}
+                                  {week.totalProductsDelivered && (
+                                    <>
+                                      <h5 className="text-lg font-semibold text-white mb-3">🎁 Produtos que Podiam Ser Feitos</h5>
+                                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+                                        {Object.entries(week.totalProductsDelivered).map(([product, quantity]) => (
+                                          <div key={product} className="bg-white/10 rounded-lg p-3 text-center">
+                                            <div className="text-white font-medium text-sm">{product}</div>
+                                            <div className="text-white/80 text-xs">{quantity} unidades</div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </>
+                                  )}
+
                                   {/* Detalhes dos Membros */}
                                   <h5 className="text-lg font-semibold text-white mb-3">🏆 Desempenho dos Membros</h5>
                                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -1061,6 +1139,19 @@ function FarmDashboard() {
                                             <span className="text-white/80">Total Entregue:</span>
                                             <span className="text-white font-medium">{member.totalDelivered}</span>
                                           </div>
+                                          {/* ✅ ADICIONADO: Produtos do membro no histórico */}
+                                          {member.productsDelivered && (
+                                            <div className="pt-2 border-t border-white/20">
+                                              <div className="text-white/80 text-xs mb-1">Produtos possíveis:</div>
+                                              <div className="grid grid-cols-2 gap-1">
+                                                {Object.entries(member.productsDelivered).slice(0, 2).map(([product, qty]) => (
+                                                  <div key={product} className="text-white text-xs">
+                                                    {product}: {qty}
+                                                  </div>
+                                                ))}
+                                              </div>
+                                            </div>
+                                          )}
                                         </div>
                                       </div>
                                     ))}
