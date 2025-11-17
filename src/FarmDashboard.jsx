@@ -192,29 +192,47 @@ function ceilDivide(a, b) {
   return Math.ceil(a / b);
 }
 
+// ✅ CORREÇÃO: Função de ranking corrigida
 function calculateRanking(memberNames, weeklyGoals, delivered) {
   if (memberNames.length === 0 || Object.keys(weeklyGoals).length === 0) return [];
   
   return memberNames.map((name, index) => {
     let totalTarget = 0;
     let totalDelivered = 0;
+    let totalPossibleProgress = 0;
+    let totalProgress = 0;
+    
     Object.keys(weeklyGoals).forEach(material => {
       const target = Number(weeklyGoals[material]) || 0;
       const deliveredQty = Number(delivered[material]?.[index]) || 0;
-      totalTarget += target;
-      totalDelivered += deliveredQty;
+      
+      if (target > 0) {
+        totalTarget += target;
+        totalDelivered += deliveredQty;
+        
+        const progress = Math.min(100, (deliveredQty / target) * 100);
+        totalPossibleProgress += 100;
+        totalProgress += progress;
+      }
     });
-    const percentage = totalTarget > 0 ? (totalDelivered / totalTarget) : 0;
+    
+    // ✅ CORREÇÃO: Cálculo preciso da porcentagem
+    const percentage = totalPossibleProgress > 0 
+      ? (totalProgress / totalPossibleProgress) 
+      : 0;
+      
     const pct = Math.min(100, Math.round(percentage * 100));
+    
     let medal = 'Nenhuma';
     if (pct >= 100) medal = '🥇 Ouro';
     else if (pct >= 80) medal = '🥈 Prata';
     else if (pct >= 50) medal = '🥉 Bronze';
+    
     return { name, index, totalTarget, totalDelivered, pct, medal };
   }).sort((a, b) => b.pct - a.pct);
 }
 
-// Função para calcular resumo semanal
+// ✅ CORREÇÃO: Função de resumo semanal corrigida
 const calculateWeeklySummary = (memberIndex, weeklyGoals, delivered) => {
   let materialsCompleted = 0;
   let totalProgress = 0;
@@ -223,16 +241,24 @@ const calculateWeeklySummary = (memberIndex, weeklyGoals, delivered) => {
   MATERIALS.forEach(material => {
     const goal = Number(weeklyGoals[material]) || 0;
     const deliveredQty = Number(delivered[material]?.[memberIndex]) || 0;
-    const progress = goal > 0 ? Math.min(100, (deliveredQty / goal) * 100) : 0;
     
     if (goal > 0) {
+      const progress = Math.min(100, (deliveredQty / goal) * 100);
       totalPossibleProgress += 100;
       totalProgress += progress;
-      if (deliveredQty >= goal) materialsCompleted++;
+      
+      // ✅ CORREÇÃO: Considera como completo se entregou pelo menos a meta
+      if (deliveredQty >= goal) {
+        materialsCompleted++;
+      }
     }
   });
 
-  const overallProgress = totalPossibleProgress > 0 ? Math.round((totalProgress / totalPossibleProgress)) : 0;
+  // ✅ CORREÇÃO: Cálculo preciso do progresso geral
+  const overallProgress = totalPossibleProgress > 0 
+    ? Math.round((totalProgress / totalPossibleProgress) * 100) / 100  // Mantém 2 casas decimais
+    : 0;
+
   const materialsWithGoals = MATERIALS.filter(m => Number(weeklyGoals[m]) > 0).length;
 
   return {
@@ -424,6 +450,25 @@ function FarmDashboard() {
   const getMemberTotalDelivered = useCallback((memberIndex) => {
     return Object.keys(delivered).reduce((sum, material) => sum + (Number(delivered[material]?.[memberIndex]) || 0), 0);
   }, [delivered]);
+
+  // ✅ CORREÇÃO: Função para calcular progresso geral preciso
+  const calculateOverallProgress = useCallback(() => {
+    let totalProgress = 0;
+    let totalPossibleProgress = 0;
+    
+    MATERIALS.forEach(material => {
+      const goal = Number(weeklyGoals[material]) || 0;
+      const deliveredTotal = getMaterialTotalDelivered(material);
+      
+      if (goal > 0) {
+        const progress = Math.min(100, (deliveredTotal / goal) * 100);
+        totalPossibleProgress += 100;
+        totalProgress += progress;
+      }
+    });
+    
+    return totalPossibleProgress > 0 ? Math.round((totalProgress / totalPossibleProgress) * 100) / 100 : 0;
+  }, [weeklyGoals, getMaterialTotalDelivered]);
 
   // Função para Fechar a Semana
   async function handleCloseMonth() {
@@ -826,8 +871,7 @@ function FarmDashboard() {
                 
                 <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-6 border border-white/30 text-center">
                   <div className="text-3xl font-bold text-white mb-2">
-                    {Math.round((Object.keys(delivered).reduce((sum, material) => sum + getMaterialTotalDelivered(material), 0) / 
-                      Object.values(weeklyGoals).reduce((sum, goal) => sum + (Number(goal) || 0), 1)) * 100)}%
+                    {calculateOverallProgress()}%
                   </div>
                   <div className="text-white/80">Progresso Geral</div>
                 </div>
