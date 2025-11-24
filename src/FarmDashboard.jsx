@@ -28,7 +28,7 @@ const HISTORY_COLLECTION_REF = collection(db, 'farm_history');
 // --- Receitas ATUALIZADAS ---
 const RECIPES = {
   Colete: { Borracha: 10, "Plástico": 10, Alumínio: 20, Ferro: 20, Tecido: 1 },
-  Algema: { Borracha: 20, "Plástico": 20, Alumínio: 25, Cobre: 15, Ferro: 25 },
+  Algema: { Borracha: 20, "Plástico": 20, Alumínio: 25, Cobre: 20, Ferro: 25 },
   Capuz: { Borracha: 10, "Plástico": 10, Tecido: 1 },
   "Flipper MK3": { Alumínio: 25, Ferro: 25, Cobre: 25, "Emb. Plástica": 25, Titânio: 1 }
 };
